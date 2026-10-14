@@ -1,0 +1,1362 @@
+<!DOCTYPE html>
+<html lang="zh-HK">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>三球儀：太陽・地球・月球</title>
+<style>
+/* ===================== STYLES ===================== */
+:root{
+  --bg:#0e1320; --panel:#182035; --panel2:#222c45; --line:#3b4a6b;
+  --text:#f5f7fb; --muted:#c3cbdb;
+  /* Okabe–Ito colour-blind-safe palette */
+  --sun:#F0E442; --sky:#56B4E9; --hk:#D55E00; --city:#CC79A7; --spin:#E69F00; --green:#009E73;
+  --ctrlH:170px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font-family:"Noto Sans TC","PingFang HK","PingFang TC","Microsoft JhengHei",system-ui,-apple-system,"Segoe UI",sans-serif;}
+body{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;
+  padding:env(safe-area-inset-top,0) env(safe-area-inset-right,0) env(safe-area-inset-bottom,0) env(safe-area-inset-left,0);}
+header{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:6px 12px;
+  background:var(--panel);border-bottom:1px solid var(--line);flex-wrap:wrap}
+h1{margin:0;font-size:clamp(18px,2.2vw,23px);line-height:1.2}
+h1 small{font-weight:500;color:var(--muted);font-size:.75em;margin-left:6px}
+.top-actions{display:flex;gap:8px;flex-wrap:wrap}
+.btn{min-height:44px;min-width:44px;padding:6px 14px;font-family:inherit;font-size:16px;font-weight:700;line-height:1.2;
+  border-radius:10px;border:2px solid #4c5c80;background:var(--panel2);color:var(--text);cursor:pointer;touch-action:manipulation}
+.btn:hover{border-color:#8ea2c8}
+.btn:focus-visible,select:focus-visible,input:focus-visible{outline:3px solid #fff;outline-offset:2px}
+.btn[aria-pressed="true"]{background:#24476e;border-color:var(--sky)}
+.btn[aria-pressed="true"]::before{content:"✓ ";}
+.btn.big{font-size:19px;min-width:130px;background:#1f5a3f;border-color:var(--green)}
+.btn.exp{border-style:dashed;border-color:#e07a7a}
+.btn.exp[aria-pressed="true"]{background:#6e2323;border-color:#ff9a9a}
+.btn.sm{font-size:15px;padding:4px 10px;background:rgba(20,28,46,.88)}
+
+#expBanner{display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap;padding:6px 10px;font-weight:800;font-size:18px;
+  background:repeating-linear-gradient(45deg,#7a1f1f 0 14px,#561414 14px 28px);border-bottom:2px solid #ff9a9a}
+#expBanner[hidden]{display:none}
+body.experiment .view{border-color:#ff9a9a;border-style:dashed}
+
+#views{flex:1;min-height:0;display:flex;gap:6px;padding:6px}
+.view{position:relative;flex:1 1 0;min-width:0;min-height:0;border-radius:12px;overflow:hidden;background:#000;border:2px solid #2c3850}
+.layout-space #groundView,.layout-ground #spaceView{display:none}
+@media (orientation:portrait),(max-width:760px){#views{flex-direction:column}}
+.canvas-wrap{position:absolute;inset:0}
+.canvas-wrap canvas{display:block;width:100%;height:100%;touch-action:none}
+
+/* ---- overlay labels + leader lines ---- */
+.labels{position:absolute;inset:0;pointer-events:none;overflow:hidden}
+.labels svg.leaders{position:absolute;inset:0;width:100%;height:100%}
+.leaders .lbg{fill:none;stroke:rgba(0,0,0,.75);stroke-width:4;stroke-linecap:round}
+.leaders .lfg{fill:none;stroke:#fff;stroke-width:1.6;stroke-linecap:round}
+.leaders .ldot{fill:#fff;stroke:#000;stroke-width:1.2}
+.lbl{position:absolute;left:0;top:0;white-space:nowrap;font-size:15px;font-weight:700;padding:3px 9px;border-radius:8px;
+  background:rgba(8,12,22,.82);border:1px solid rgba(255,255,255,.5);color:#fff;will-change:transform;transition:opacity .2s;
+  opacity:0;visibility:hidden}
+.lbl small{display:block;font-weight:500;font-size:12px;color:var(--muted)}
+.lbl.big{font-size:17px}
+.lbl.pole{font-size:18px;background:#fff;color:#111;border-color:#111;padding:1px 8px}
+.lbl.spin{border:2px solid var(--spin)}
+.lbl.hk{border:2px solid var(--hk)}
+.lbl.city{border:2px solid var(--city)}
+.lbl.tiny{font-size:13px;padding:1px 6px}
+.lbl.term{border:2px dashed #fff}
+.lbl.compass{font-size:24px;padding:2px 12px;background:rgba(255,255,255,.93);color:#111;border:2px solid #111}
+.lbl.compass2{font-size:14px;padding:1px 6px;background:rgba(255,255,255,.72);color:#111}
+.lbl.hour{font-size:12px;padding:1px 5px;background:rgba(0,0,0,.6)}
+.lbl.place{font-size:13px;background:rgba(0,0,0,.45);border-color:rgba(255,255,255,.3)}
+
+.view-title{position:absolute;top:8px;left:8px;z-index:3;font-weight:800;font-size:17px;background:rgba(8,12,22,.82);
+  padding:6px 10px;border-radius:8px;border:1px solid var(--line);max-width:calc(100% - 70px)}
+.view-title small{font-weight:500;color:var(--muted)}
+.fs-btn{position:absolute;top:6px;right:6px;z-index:3;font-size:20px;padding:4px}
+.corner-note{position:absolute;bottom:6px;z-index:3;font-size:13px;background:rgba(8,12,22,.78);padding:4px 8px;border-radius:6px;color:var(--muted)}
+.corner-note.left{left:6px}.corner-note.right{right:6px;text-align:right}
+.ground-tools{position:absolute;top:52px;left:8px;z-index:3;display:flex;gap:6px;flex-wrap:wrap;max-width:calc(100% - 140px)}
+#skyDial{position:absolute;top:54px;right:8px;width:110px;height:124px;z-index:3}
+.hint{position:absolute;left:8px;right:8px;bottom:8px;z-index:3;background:rgba(255,251,230,.95);color:#111;font-size:clamp(16px,1.7vw,19px);
+  font-weight:700;padding:8px 12px;border-radius:10px;border:3px solid #111;line-height:1.4}
+
+footer{background:var(--panel);border-top:1px solid var(--line);padding:8px 10px;display:flex;flex-direction:column;gap:8px}
+.row{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+#clockBox{display:flex;align-items:center;gap:10px;padding:4px 10px;border-radius:10px;background:var(--panel2);border:2px solid var(--line)}
+#clockBox .main{font-size:20px;font-weight:800}
+#clockBox .main b{font-size:27px;font-variant-numeric:tabular-nums;color:var(--sun)}
+#clockBox .sub{font-size:14px;color:var(--muted)}
+#clockBox .sub b{color:#fff;font-variant-numeric:tabular-nums}
+.slider-wrap{flex:1 1 260px;min-width:220px;display:flex;flex-direction:column;padding:0 4px;border-radius:10px}
+.slider-wrap .ticks{display:flex;justify-content:space-between;font-size:13px;color:var(--muted)}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:44px;background:transparent;margin:0;cursor:pointer}
+input[type=range]::-webkit-slider-runnable-track{height:14px;border-radius:7px;border:2px solid #fff;
+  background:linear-gradient(90deg,#141c38 0%,#141c38 21%,#f4a259 25%,#7cc4f2 33%,#7cc4f2 67%,#f4a259 75%,#141c38 79%,#141c38 100%)}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:34px;height:34px;margin-top:-12px;border-radius:50%;background:#fff;border:5px solid #111}
+input[type=range]::-moz-range-track{height:14px;border-radius:7px;border:2px solid #fff;
+  background:linear-gradient(90deg,#141c38 0%,#141c38 21%,#f4a259 25%,#7cc4f2 33%,#7cc4f2 67%,#f4a259 75%,#141c38 79%,#141c38 100%)}
+input[type=range]::-moz-range-thumb{width:28px;height:28px;border-radius:50%;background:#fff;border:5px solid #111}
+.group{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:15px;font-weight:700}
+.group .glabel{color:var(--muted)}
+select{min-height:44px;font-size:16px;font-family:inherit;font-weight:700;border-radius:10px;padding:4px 8px;background:var(--panel2);color:var(--text);border:2px solid #4c5c80}
+
+#legend{position:fixed;top:60px;right:12px;z-index:30;width:min(360px,calc(100vw - 24px));max-height:calc(100vh - 80px);overflow:auto;
+  background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:10px 12px;font-size:15px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+#legend[hidden]{display:none}
+#legend h2{margin:0 0 6px;font-size:17px}
+#legend ul{list-style:none;margin:0;padding:0}
+#legend li{display:flex;align-items:center;gap:10px;padding:5px 0;border-bottom:1px solid #26314b}
+#legend li svg{flex:0 0 40px}
+
+#guide{position:fixed;left:12px;bottom:var(--ctrlH);z-index:25;width:min(460px,calc(100vw - 24px));background:#fffbe6;color:#151515;
+  border:3px solid #111;border-radius:14px;padding:12px 14px;box-shadow:0 10px 30px rgba(0,0,0,.55);font-size:17px;line-height:1.5}
+#guide[hidden]{display:none}
+#guide h2{margin:2px 0 6px;font-size:21px}
+#guide .step{font-size:14px;font-weight:700;color:#5a4a00}
+#guide .q{background:#fff;border:2px dashed #111;border-radius:10px;padding:6px 10px;margin:8px 0;font-weight:700}
+#guide .nav{display:flex;gap:8px;justify-content:space-between}
+#guide .btn{background:#fff;color:#111;border-color:#111}
+.highlight{outline:5px dashed var(--sun)!important;outline-offset:3px;animation:pulse 1.1s infinite}
+.view.highlight{outline-offset:-7px}
+@keyframes pulse{50%{outline-color:#fff}}
+@media (prefers-reduced-motion:reduce){.highlight{animation:none}}
+
+#fallback,#loader{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;background:#0e1320;padding:24px}
+#fallback[hidden],#loader[hidden]{display:none}
+#loader{z-index:90;background:rgba(14,19,32,.94);font-size:22px;font-weight:800}
+#fallback .box{max-width:560px;background:#fffbe6;color:#111;border:3px solid #111;border-radius:14px;padding:20px;font-size:18px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>☀️🌍🌙 三球儀 <small>太陽・地球・月球</small></h1>
+  <div class="top-actions">
+    <button class="btn" id="btnGuide">📘 導學模式</button>
+    <button class="btn" id="btnLabels" aria-pressed="true">🏷️ 標籤</button>
+    <button class="btn" id="btnLegend" aria-expanded="false" aria-controls="legend">🔑 圖例</button>
+  </div>
+</header>
+
+<div id="expBanner" role="status" hidden>
+  <span>🧪 實驗模式：這不是真實的地球！</span>
+  <button class="btn" id="btnRealEarth">🌍 回到真實地球</button>
+</div>
+
+<main id="views" class="layout-split">
+  <section class="view" id="spaceView" aria-label="太空視角">
+    <div class="canvas-wrap" id="spaceWrap"></div>
+    <div class="labels" id="spaceLabels"><svg class="leaders" aria-hidden="true"><path class="lbg"/><path class="lfg"/><path class="ldot"/></svg></div>
+    <div class="view-title reserve">🚀 太空視角</div>
+    <button class="btn fs-btn reserve" data-fs="space" aria-label="全螢幕顯示">⛶</button>
+    <div class="corner-note left reserve">⚠️ 大小和距離不按比例</div>
+    <div class="corner-note right reserve">✋ 拖動太空：轉換角度 · 拖動地球：令地球自轉<br>雙指／滾輪：放大縮小</div>
+  </section>
+
+  <section class="view" id="groundView" aria-label="地面視角">
+    <div class="canvas-wrap" id="groundWrap"></div>
+    <div class="labels" id="groundLabels"><svg class="leaders" aria-hidden="true"><path class="lbg"/><path class="lfg"/><path class="ldot"/></svg></div>
+    <div class="view-title reserve">👀 地面視角 <small>香港尖沙咀海旁</small></div>
+    <button class="btn fs-btn reserve" data-fs="ground" aria-label="全螢幕顯示">⛶</button>
+    <div class="ground-tools reserve">
+      <button class="btn sm" id="btnFollow" aria-pressed="true">☀️ 跟隨太陽</button>
+      <button class="btn sm" data-look="90">東</button>
+      <button class="btn sm" data-look="180">南</button>
+      <button class="btn sm" data-look="270">西</button>
+    </div>
+    <svg id="skyDial" class="reserve" viewBox="-60 -60 120 134" aria-label="天空圖（由上往下看）">
+      <circle r="52" fill="rgba(10,15,30,.85)" stroke="#fff" stroke-width="2"/>
+      <circle r="26" fill="none" stroke="rgba(255,255,255,.35)" stroke-dasharray="3 3"/>
+      <line id="dialFacing" x1="0" y1="0" x2="0" y2="-50" stroke="#56B4E9" stroke-width="5" stroke-linecap="round"/>
+      <text y="-36" fill="#fff" font-size="15" font-weight="800" text-anchor="middle">北</text>
+      <text x="38" y="5" fill="#fff" font-size="15" font-weight="800" text-anchor="middle">東</text>
+      <text y="47" fill="#fff" font-size="15" font-weight="800" text-anchor="middle">南</text>
+      <text x="-38" y="5" fill="#fff" font-size="15" font-weight="800" text-anchor="middle">西</text>
+      <circle id="dialSun" r="8" fill="#F0E442" stroke="#111" stroke-width="2"/>
+      <text y="70" fill="#fff" font-size="11" text-anchor="middle">天空圖（由上往下看）</text>
+    </svg>
+    <div id="hint" class="hint reserve" aria-live="polite"></div>
+  </section>
+</main>
+
+<footer id="controls">
+  <div class="row">
+    <button class="btn big" id="btnPlay">▶ 播放</button>
+    <div id="clockBox">
+      <svg id="dial24" width="72" height="72" viewBox="-50 -50 100 100" aria-hidden="true">
+        <path d="M-46,0 A46,46 0 0,0 46,0 Z" fill="#141c38"/>
+        <path d="M-46,0 A46,46 0 0,1 46,0 Z" fill="#7cc4f2"/>
+        <circle r="46" fill="none" stroke="#fff" stroke-width="3"/>
+        <g id="dialTicks"></g>
+        <text y="-28" text-anchor="middle" font-size="13" font-weight="800" fill="#111">12</text>
+        <text y="36" text-anchor="middle" font-size="13" font-weight="800" fill="#fff">0</text>
+        <text x="-31" y="5" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">6</text>
+        <text x="31" y="5" text-anchor="middle" font-size="12" font-weight="800" fill="#fff">18</text>
+        <text y="-10" text-anchor="middle" font-size="12">☀️</text>
+        <text y="22" text-anchor="middle" font-size="11">🌙</text>
+        <line id="dialHand" x1="0" y1="6" x2="0" y2="-40" stroke="#D55E00" stroke-width="5" stroke-linecap="round"/>
+        <circle r="5" fill="#111" stroke="#fff" stroke-width="2"/>
+      </svg>
+      <div>
+        <div class="main">香港 <b id="hkTime">06:00</b></div>
+        <div class="sub"><span id="cityName">倫敦</span> <b id="cityTime">22:00</b> <span id="cityDay"></span></div>
+        <div class="sub">地球已自轉 <b id="turned">90°</b>／360° = 24 小時</div>
+      </div>
+    </div>
+    <label class="slider-wrap" id="sliderWrap">
+      <input type="range" id="timeSlider" min="0" max="24" step="0.0166667" value="6" aria-label="香港時間">
+      <span class="ticks"><span>00:00 🌙</span><span>06:00</span><span>12:00 ☀️</span><span>18:00</span><span>24:00 🌙</span></span>
+    </label>
+  </div>
+  <div class="row">
+    <div class="group" role="group" aria-label="速度">
+      <span class="glabel">速度</span>
+      <button class="btn sm" data-speed="1">1 秒 = 1 小時</button>
+      <button class="btn sm" data-speed="0.5">1 秒 = 30 分鐘</button>
+      <button class="btn sm" data-speed="0.25">慢速（1 秒 = 15 分鐘）</button>
+    </div>
+    <button class="btn exp" id="btnSpin" aria-pressed="false">🧪 如果地球反方向自轉，會怎樣？</button>
+    <label class="group"><span class="glabel">城市</span>
+      <select id="citySel"><option value="london">倫敦</option><option value="newyork">紐約</option></select></label>
+    <label class="group"><span class="glabel">日期</span>
+      <select id="seasonSel">
+        <option value="equinox">春分（3 月）</option>
+        <option value="summer">夏至（6 月）</option>
+        <option value="winter">冬至（12 月）</option>
+      </select></label>
+    <button class="btn sm" id="btnMoon" aria-pressed="true">🌙 月球</button>
+    <div class="group" role="group" aria-label="畫面">
+      <span class="glabel">畫面</span>
+      <button class="btn sm" data-layout="split">分屏</button>
+      <button class="btn sm" data-layout="space">太空</button>
+      <button class="btn sm" data-layout="ground">地面</button>
+    </div>
+    <button class="btn sm" id="btnReset">⟲ 重設</button>
+  </div>
+</footer>
+
+<aside id="legend" hidden aria-label="圖例">
+  <h2>🔑 圖例</h2>
+  <ul>
+    <li><svg width="40" height="16"><line x1="2" y1="8" x2="28" y2="8" stroke="#F0E442" stroke-width="4"/><polygon points="27,2 38,8 27,14" fill="#F0E442"/></svg>
+      <span>陽光（平行光線）</span></li>
+    <li><svg width="40" height="24"><circle cx="20" cy="12" r="10" fill="none" stroke="#fff" stroke-width="3"/></svg>
+      <span>白圈：晨昏線（日夜分界線）</span></li>
+    <li><svg width="40" height="24"><path d="M8,16 A12,8 0 1,1 30,16" fill="none" stroke="#E69F00" stroke-width="4"/><polygon points="26,12 36,18 26,22" fill="#E69F00"/></svg>
+      <span>北極上方的箭頭：地球自轉方向</span></li>
+    <li><svg width="40" height="26"><ellipse cx="20" cy="22" rx="16" ry="4" fill="#56B4E9" opacity=".7"/><rect x="17" y="8" width="6" height="12" fill="#D55E00"/><circle cx="20" cy="6" r="4" fill="#ffd9b3"/></svg>
+      <span>香港觀察者（橙色小人）、地平面（藍色圓盤）及「上」方向（白色箭頭）</span></li>
+    <li><svg width="40" height="24"><line x1="20" y1="22" x2="20" y2="10" stroke="#fff" stroke-width="2"/><rect x="14" y="2" width="12" height="12" fill="#CC79A7"/></svg>
+      <span>比較城市（方形標記）</span></li>
+    <li><svg width="40" height="20"><text x="2" y="16" font-size="15">☀️🌙</text></svg>
+      <span>該地現在是白天／晚上</span></li>
+    <li><svg width="40" height="16"><line x1="2" y1="8" x2="38" y2="8" stroke="#F0E442" stroke-width="3" stroke-dasharray="6 4"/></svg>
+      <span>黃線：香港觀察者望向太陽的視線</span></li>
+    <li><svg width="40" height="16"><g fill="#fff3a0"><circle cx="5" cy="12" r="2.5"/><circle cx="13" cy="7" r="2.5"/><circle cx="21" cy="5" r="2.5"/><circle cx="29" cy="7" r="2.5"/><circle cx="37" cy="12" r="2.5"/></g></svg>
+      <span>點線：今天太陽在天空經過的路徑（地面視角）</span></li>
+  </ul>
+</aside>
+
+<aside id="guide" hidden aria-live="polite">
+  <div class="step" id="gStep">第 1 步（共 4 步）</div>
+  <h2 id="gTitle"></h2>
+  <div id="gBody"></div>
+  <div class="q" id="gQ"></div>
+  <div class="nav">
+    <button class="btn" id="gPrev">◀ 上一步</button>
+    <button class="btn" id="gClose">✕ 關閉</button>
+    <button class="btn" id="gNext">下一步 ▶</button>
+  </div>
+</aside>
+
+<div id="loader">⏳ 正在建立三球儀模型……</div>
+<div id="fallback" hidden><div class="box"><b>⚠️ 未能顯示 3D 模型</b><p class="msg"></p></div></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+(function(){
+'use strict';
+const $=s=>document.querySelector(s), $$=s=>Array.from(document.querySelectorAll(s));
+
+/* =====================================================================
+   0. BOOT – library & WebGL check
+   ===================================================================== */
+function showFallback(msg){ $('#loader').hidden=true; const f=$('#fallback'); f.querySelector('.msg').innerHTML=msg; f.hidden=false; }
+function hasWebGL(){ try{ const c=document.createElement('canvas');
+  return !!(window.WebGLRenderingContext&&(c.getContext('webgl')||c.getContext('experimental-webgl'))); }catch(e){ return false; } }
+if(typeof THREE==='undefined'){ showFallback('未能載入 3D 引擎（Three.js）。請檢查網絡連線，然後重新載入網頁。'); return; }
+if(!hasWebGL()){ showFallback('這個瀏覽器或裝置不支援 WebGL，未能顯示 3D 模型。請改用較新的裝置，並使用 Chrome、Edge 或 Safari。'); return; }
+// Build after the loading message has painted (procedural textures take about 1 second)
+setTimeout(function(){ try{ run(); }catch(e){ console.error(e); showFallback('啟動 3D 模型時發生錯誤。請重新載入網頁，或改用另一部裝置。'); } },40);
+
+function run(){
+/* =====================================================================
+   1. STATE – the single source of truth
+   ===================================================================== */
+const DEG=Math.PI/180, TILT=23.5, R_EARTH=2, MOON_DIST=5.6, LUNAR_MONTH=29.53, MOON_START_DEG=100;
+const Y_AXIS=new THREE.Vector3(0,1,0);
+const SUN_DIR=new THREE.Vector3(1,0,0);           // world direction Earth → Sun (fixed; Sun on the right)
+const SUN_POS=SUN_DIR.clone().multiplyScalar(11);  // visual Sun position (NOT to scale)
+const HK={zh:'香港',lat:22.3,lon:114.2,tz:8};
+const CITIES={ london:{zh:'倫敦',lat:51.5,lon:-0.1,tz:0}, newyork:{zh:'紐約',lat:40.7,lon:-74.0,tz:-5} };
+const SEASONS={ equinox:{decSign:0}, summer:{decSign:1}, winter:{decSign:-1} };
+const DEFAULTS={ timeOfDay:6, day:0, playing:false, speed:1, spinDir:1, season:'equinox', city:'london',
+  showMoon:true, showLabels:true, layout:'split', followSun:true };
+const state=Object.assign({},DEFAULTS);   // timeOfDay = Hong Kong local (solar) time in hours [0,24)
+
+function addHours(h){ let t=state.timeOfDay+h;
+  while(t>=24){t-=24;state.day++;} while(t<0){t+=24;state.day--;} state.timeOfDay=t; }
+function setTime(h){ state.timeOfDay=Math.min(Math.max(h,0),23.999); }
+
+/* =====================================================================
+   2. ASTRONOMY MATH
+   ===================================================================== */
+/**
+ * sunAzAlt – where does a ground observer see the Sun?
+ *  time    : Hong Kong clock hours (treated as local solar time at HK's longitude)
+ *  lat,lon : observer position in degrees (north +, east +)
+ *  tilt    : Earth's axial tilt in degrees (23.5)
+ *  spinDir : +1 = real Earth (west→east, anticlockwise seen from above N pole), -1 = experiment
+ *  decSign : season factor (0 equinox, +1 June solstice, -1 December solstice)
+ * returns  : { az (0=N, 90=E, 180=S, 270=W), alt (deg above horizon), east, north, up }
+ */
+function sunAzAlt(time, lat, lon, tilt, spinDir, decSign){
+  // 1) Hour angle H: how far the Earth has turned since this place's local noon.
+  //    360° per 24 h = 15° per hour. Reversing the spin reverses the turning.
+  //    Places east/west of HK are offset by their longitude difference.
+  const H=(spinDir*(time-12)*15 + (lon-HK.lon))*DEG;
+  // 2) Declination δ: how far north/south of the equator the Sun shines (season, from the tilt).
+  const dec=tilt*(decSign||0)*DEG, phi=lat*DEG;
+  // 3) Sun direction in the observer's local East-North-Up frame (standard spherical astronomy).
+  const east =-Math.cos(dec)*Math.sin(H);
+  const north= Math.cos(phi)*Math.sin(dec)-Math.sin(phi)*Math.cos(dec)*Math.cos(H);
+  const up   = Math.sin(phi)*Math.sin(dec)+Math.cos(phi)*Math.cos(dec)*Math.cos(H);
+  let az=Math.atan2(east,north)/DEG; if(az<0) az+=360;
+  const alt=Math.asin(Math.max(-1,Math.min(1,up)))/DEG;
+  return {az,alt,east,north,up};
+}
+/** Ground scene: azimuth/altitude → 3D vector (North = -Z, East = +X, Up = +Y). */
+function azAltToVec(az,alt,r,out){ const a=az*DEG,h=alt*DEG;
+  return out.set(r*Math.cos(h)*Math.sin(a), r*Math.sin(h), -r*Math.cos(h)*Math.cos(a)); }
+/** Earth-local position of a latitude/longitude (matches THREE.SphereGeometry UVs). */
+function latLonToVec(lat,lon,r,out){ const la=lat*DEG,lo=lon*DEG;
+  return (out||new THREE.Vector3()).set(r*Math.cos(la)*Math.cos(lo), r*Math.sin(la), -r*Math.cos(la)*Math.sin(lo)); }
+/** Direction of the North-Pole axis for a season (Sun fixed at +X; tilt kept at 23.5°). */
+function tiltAxisFor(season){ const t=TILT*DEG, s=SEASONS[season].decSign;
+  if(s===0) return new THREE.Vector3(0,Math.cos(t),-Math.sin(t));      // tilted sideways to the Sun
+  return new THREE.Vector3(s*Math.sin(t),Math.cos(t),0);               // towards (+1) / away from (-1) the Sun
+}
+function cityClock(c){ return state.timeOfDay + c.tz - HK.tz; }
+
+/* =====================================================================
+   3. HELPERS – maths, noise, procedural textures
+   ===================================================================== */
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const wrapPi=a=>Math.atan2(Math.sin(a),Math.cos(a));
+const wrap180=d=>((d%360)+540)%360-180;
+const smooth=(e0,e1,x)=>{ const t=clamp((x-e0)/(e1-e0),0,1); return t*t*(3-2*t); };
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function fmtTime(h){ h=((h%24)+24)%24; let m=Math.round(h*60); if(m>=1440) m-=1440;
+  return String(Math.floor(m/60)).padStart(2,'0')+':'+String(m%60).padStart(2,'0'); }
+const mkCanvas=(w,h)=>{ const c=document.createElement('canvas'); c.width=w; c.height=h; return c; };
+
+/** Seeded 3D value noise in [0,1]. */
+function makeNoise3(seed){
+  const r=mulberry32(seed), p=new Uint8Array(512), v=new Float32Array(256);
+  for(let i=0;i<256;i++){ p[i]=i; v[i]=r(); }
+  for(let i=255;i>0;i--){ const j=(r()*(i+1))|0, t=p[i]; p[i]=p[j]; p[j]=t; }
+  for(let i=0;i<256;i++) p[i+256]=p[i];
+  return function(x,y,z){
+    const X=Math.floor(x),Y=Math.floor(y),Z=Math.floor(z);
+    const xf=x-X,yf=y-Y,zf=z-Z, xi=X&255,yi=Y&255,zi=Z&255;
+    const u=xf*xf*(3-2*xf), w2=yf*yf*(3-2*yf), w3=zf*zf*(3-2*zf);
+    const a=p[xi]+yi, b=p[xi+1]+yi, aa=p[a]+zi, ab=p[a+1]+zi, ba=p[b]+zi, bb=p[b+1]+zi;
+    const x1=v[p[aa]]+(v[p[ba]]-v[p[aa]])*u, x2=v[p[ab]]+(v[p[bb]]-v[p[ab]])*u;
+    const x3=v[p[aa+1]]+(v[p[ba+1]]-v[p[aa+1]])*u, x4=v[p[ab+1]]+(v[p[bb+1]]-v[p[ab+1]])*u;
+    const y1=x1+(x2-x1)*w2, y2=x3+(x4-x3)*w2;
+    return y1+(y2-y1)*w3;
+  };
+}
+function fbm3(n,x,y,z,oct){ let s=0,a=0.5,t=0; for(let i=0;i<oct;i++){ s+=a*n(x,y,z); t+=a; x=x*2.03+17.1; y=y*2.03+3.7; z=z*2.03+9.3; a*=0.5; } return s/t; }
+function radialTexture(stops){ const s=128,c=mkCanvas(s,s),g=c.getContext('2d');
+  const gr=g.createRadialGradient(s/2,s/2,0,s/2,s/2,s/2); stops.forEach(([o,col])=>gr.addColorStop(o,col));
+  g.fillStyle=gr; g.fillRect(0,0,s,s); return new THREE.CanvasTexture(c); }
+
+// ---------- Simplified continent outlines [lon, lat] ----------
+const LAND=[
+ [[-168,66],[-162,70],[-140,70],[-125,70],[-95,72],[-80,73],[-65,62],[-60,55],[-66,45],[-70,42],[-76,36],[-81,31],[-80,25],[-83,29],[-90,30],[-97,27],[-97,21],[-90,21],[-87,15],[-83,9],[-79,8],[-85,12],[-92,15],[-105,20],[-112,29],[-117,33],[-124,40],[-124,48],[-133,56],[-150,60],[-160,58],[-165,62]],
+ [[-80,9],[-75,11],[-62,10],[-50,0],[-35,-5],[-39,-15],[-48,-26],[-58,-35],[-65,-42],[-68,-52],[-72,-50],[-74,-40],[-71,-30],[-70,-18],[-76,-14],[-81,-5],[-79,1]],
+ [[-17,15],[-17,21],[-10,30],[-6,36],[10,37],[20,32],[32,31],[35,28],[43,12],[51,12],[42,-2],[40,-15],[35,-25],[20,-35],[18,-30],[12,-17],[13,-5],[9,4],[-5,5],[-13,8]],
+ [[-10,36],[-9,43],[-2,44],[-4,48],[5,52],[8,57],[5,62],[15,69],[28,71],[40,67],[60,69],[80,73],[105,78],[140,72],[160,70],[180,68],[180,62],[163,58],[156,51],[142,53],[135,44],[128,38],[126,35],[121,31],[121,28],[118,24],[114,22],[108,21],[106,18],[109,12],[105,9],[100,13],[102,6],[104,1.5],[101,3],[98,8],[97,16],[94,17],[91,22],[87,21],[80,15],[78,8],[73,17],[72,21],[67,25],[61,25],[57,25],[56,27],[50,30],[48,29],[51,24],[56,26],[59,22],[52,16],[43,12],[39,21],[35,28],[32,31],[35,36],[28,36.5],[26.5,40],[23,40.5],[22,37],[20,40],[19,42],[13,45],[16,42],[18.5,40],[16,38],[12,41.5],[8,44],[3,43],[0,39],[-6,37]],
+ [[114,-22],[122,-18],[130,-12],[137,-12],[142,-11],[146,-19],[153,-26],[150,-37],[141,-38],[135,-35],[129,-32],[115,-34]],
+ [[-5,50],[1,51],[2,53],[-2,57],[-5,58.5],[-6,56],[-3,54],[-5,52]],
+ [[130,31],[135,34],[140,35],[142,40],[141,45],[144,44],[140,41],[136,36],[131,34]],
+ [[95,5],[106,-6],[104,-5],[100,-1]], [[109,1],[117,7],[119,1],[116,-4],[110,-3]], [[131,-1],[141,-3],[150,-10],[141,-9]],
+ [[44,-25],[47,-25],[50,-15],[49,-12]], [[172,-34],[178,-38],[174,-41],[167,-46],[170,-46],[174,-40]]
+];
+const WATER=[[[28,41],[28,46],[34,46],[41,41],[34,42]],[[47,45],[50,47],[53,45],[54,37],[49,37],[50,40]],
+ [[10,54],[13,56],[18,60],[22,65],[25,65],[30,60],[22,58],[21,55]],[[-95,60],[-85,55],[-80,52],[-78,58],[-80,63],[-90,64]]];
+const DESERT=[[[-15,28],[-5,32],[10,32],[30,30],[33,22],[30,16],[15,15],[0,17],[-15,18]],
+ [[38,30],[48,30],[56,23],[50,16],[43,17]], [[122,-20],[136,-18],[142,-25],[136,-31],[124,-30]],
+ [[90,45],[110,45],[115,40],[100,37],[88,40]], [[-117,36],[-108,36],[-104,30],[-112,28]],
+ [[15,-20],[24,-20],[25,-28],[17,-28]], [[-71,-18],[-69,-18],[-70,-27],[-72,-27]], [[55,40],[65,45],[70,38],[60,35]]];
+const GREENLAND=[[-55,60],[-45,60],[-20,70],[-20,82],[-60,82],[-73,77],[-58,70]];
+
+/** Builds Earth colour / bump / specular textures procedurally (no image files). */
+function buildEarthMaps(aniso){
+  const W=2048,H=1024,SW=512,SH=256;
+  const big=mkCanvas(W,H), bg=big.getContext('2d');
+  const readUp=src=>{ bg.clearRect(0,0,W,H); bg.imageSmoothingEnabled=true; bg.drawImage(src,0,0,W,H); return bg.getImageData(0,0,W,H).data; };
+  function softMask(polys,erase){
+    const a=mkCanvas(SW,SH), g=a.getContext('2d'); g.fillStyle='#000'; g.fillRect(0,0,SW,SH);
+    const P=(lo,la)=>[(lo+180)/360*SW,(90-la)/180*SH];
+    const fill=(pts,col)=>{ g.beginPath(); pts.forEach((p,i)=>{ const q=P(p[0],p[1]); if(i) g.lineTo(q[0],q[1]); else g.moveTo(q[0],q[1]); }); g.closePath(); g.fillStyle=col; g.fill(); };
+    polys.forEach(p=>fill(p,'#fff')); (erase||[]).forEach(p=>fill(p,'#000'));
+    const s=mkCanvas(SW/2,SH/2), sg=s.getContext('2d'); sg.imageSmoothingEnabled=true; sg.drawImage(a,0,0,SW/2,SH/2);
+    const d=readUp(s), out=new Uint8Array(W*H); for(let i=0,j=0;j<out.length;i+=4,j++) out[j]=d[i]; return out;
+  }
+  const ANT=[]; for(let lo=-180;lo<=180;lo+=10) ANT.push([lo,-69+3*Math.sin(lo*0.13)+2*Math.cos(lo*0.05)]); ANT.push([180,-90],[-180,-90]);
+  const ice=softMask([GREENLAND,ANT]), land=softMask(LAND.concat([GREENLAND,ANT]),WATER), desert=softMask(DESERT);
+  // noise grid (elevation, moisture, detail) sampled on the sphere → no seams
+  const nc=mkCanvas(SW,SH), ng=nc.getContext('2d'), ni=ng.createImageData(SW,SH), nd=ni.data;
+  const n1=makeNoise3(11), n2=makeNoise3(23), n3=makeNoise3(37);
+  for(let y=0;y<SH;y++){ const la=(0.5-(y+0.5)/SH)*Math.PI, cl=Math.cos(la), sl=Math.sin(la);
+    for(let x=0;x<SW;x++){ const lo=(x+0.5)/SW*2*Math.PI-Math.PI, px=cl*Math.cos(lo), py=sl, pz=-cl*Math.sin(lo), i=(y*SW+x)*4;
+      nd[i]  =255*clamp((fbm3(n1,px*2.2,py*2.2,pz*2.2,5)-0.5)*2.6+0.5,0,1);
+      nd[i+1]=255*clamp((fbm3(n2,px*1.4,py*1.4,pz*1.4,3)-0.5)*2.4+0.5,0,1);
+      nd[i+2]=255*clamp((fbm3(n3,px*7,py*7,pz*7,3)-0.5)*2.4+0.5,0,1); nd[i+3]=255; } }
+  ng.putImageData(ni,0,0);
+  const N=readUp(nc);
+  const cC=mkCanvas(W,H), cg=cC.getContext('2d'), cI=cg.createImageData(W,H), col=cI.data;
+  const bC=mkCanvas(W,H), bgx=bC.getContext('2d'), bI=bgx.createImageData(W,H), bmp=bI.data;
+  const sC=mkCanvas(W,H), sgx=sC.getContext('2d'), sI=sgx.createImageData(W,H), spc=sI.data;
+  const TROP=[30,72,28],TEMP=[72,102,46],BOR=[38,66,40],TUN=[118,112,88],SAV=[140,128,70],DES=[214,180,120],DES2=[176,130,84],ROCK=[112,100,86],SNOW=[238,242,246];
+  const mix=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+  for(let y=0;y<H;y++){
+    const lat=90-(y+0.5)/H*180, al=Math.abs(lat);
+    let base; if(al<14) base=TROP; else if(al<30) base=mix(TROP,TEMP,(al-14)/16); else if(al<50) base=TEMP;
+    else if(al<62) base=mix(TEMP,BOR,(al-50)/12); else base=mix(BOR,TUN,Math.min(1,(al-62)/8));
+    const savK=al<35?Math.max(0,1-Math.abs(al-20)/15):0;
+    for(let x=0;x<W;x++){
+      const j=y*W+x, i=j*4, e=N[i]/255, mo=N[i+1]/255, dtl=N[i+2]/255;
+      const grain=(((x*7919)^(y*104729))&255)/255;
+      const lv=land[j]/255+(e-0.5)*0.55+(dtl-0.5)*0.3;
+      let r,g,b,sp=0,bu=0;
+      if(lv<0.5){                                   // ---- ocean: shallow near coasts, deep offshore ----
+        const dep=Math.min(1,(0.5-lv)*3.2), v=0.94+0.12*dtl;
+        r=(40+(6-40)*dep)*v; g=(112+(30-112)*dep)*v; b=(150+(74-150)*dep)*v; sp=180;
+        if(al>72){ const k=Math.min(1,(al-72)/6)*(0.5+0.5*dtl); r+=(225-r)*k; g+=(232-g)*k; b+=(240-b)*k; sp*=1-k; }
+      } else {                                      // ---- land: climate zones, deserts, mountains, snow ----
+        const inland=Math.min(1,(lv-0.5)*4), elev=clamp((e-0.45)*2.2,0,1)*inland;
+        r=base[0]; g=base[1]; b=base[2];
+        if(savK>0){ const k=savK*clamp((0.6-mo)*2.5,0,1); r+=(SAV[0]-r)*k; g+=(SAV[1]-g)*k; b+=(SAV[2]-b)*k; }
+        const dry=clamp(desert[j]/255*1.4+(mo-0.5)*0.5,0,1);
+        if(dry>0){ const dc=mix(DES,DES2,e); r+=(dc[0]-r)*dry; g+=(dc[1]-g)*dry; b+=(dc[2]-b)*dry; }
+        if(elev>0.5){ const k=Math.min(1,(elev-0.5)*2.5); r+=(ROCK[0]-r)*k; g+=(ROCK[1]-g)*k; b+=(ROCK[2]-b)*k; }
+        const snowK=Math.min(1,Math.max(ice[j]/255*1.2, al>70?(al-70)/5:0, elev>0.85?(elev-0.85)*6:0, (al>42&&elev>0.68)?(elev-0.68)*4:0));
+        if(snowK>0){ r+=(SNOW[0]-r)*snowK; g+=(SNOW[1]-g)*snowK; b+=(SNOW[2]-b)*snowK; }
+        const v=0.86+0.1*grain+0.14*dtl; r*=v; g*=v; b*=v;
+        bu=snowK>0.8?110:50+elev*205;
+      }
+      col[i]=r; col[i+1]=g; col[i+2]=b; col[i+3]=255;
+      bmp[i]=bmp[i+1]=bmp[i+2]=bu; bmp[i+3]=255;
+      spc[i]=spc[i+1]=spc[i+2]=sp; spc[i+3]=255;
+    }
+  }
+  cg.putImageData(cI,0,0); bgx.putImageData(bI,0,0); sgx.putImageData(sI,0,0);
+  cg.setLineDash([16,12]); cg.strokeStyle='rgba(255,255,255,.35)'; cg.lineWidth=3;   // faint equator
+  cg.beginPath(); cg.moveTo(0,H/2); cg.lineTo(W,H/2); cg.stroke();
+  const t=c=>{ const x=new THREE.CanvasTexture(c); x.anisotropy=aniso; return x; };
+  return {color:t(cC),bump:t(bC),spec:t(sC)};
+}
+function buildCloudTexture(){
+  const W=768,H=384,c=mkCanvas(W,H),g=c.getContext('2d'),img=g.createImageData(W,H),d=img.data,n=makeNoise3(77);
+  for(let y=0;y<H;y++){ const lat=90-(y+0.5)/H*180, al=Math.abs(lat), la=lat*DEG, cl=Math.cos(la), sl=Math.sin(la);
+    const w=0.07*Math.exp(-(((lat-6)/9)**2))+0.06*Math.exp(-(((al-52)/13)**2))-0.06*Math.exp(-(((al-24)/9)**2));
+    for(let x=0;x<W;x++){ const lo=(x+0.5)/W*2*Math.PI-Math.PI, px=cl*Math.cos(lo), pz=-cl*Math.sin(lo);
+      const v=fbm3(n,px*2.6,sl*2.6,pz*2.6,5)+w, a=smooth(0.53,0.7,v), i=(y*W+x)*4;
+      d[i]=d[i+1]=d[i+2]=255; d[i+3]=a*235; } }
+  g.putImageData(img,0,0); return new THREE.CanvasTexture(c);
+}
+function buildMoonTexture(){
+  const SW=512,SH=256,s=mkCanvas(SW,SH),sg=s.getContext('2d'),img=sg.createImageData(SW,SH),d=img.data,n1=makeNoise3(5),n2=makeNoise3(9);
+  for(let y=0;y<SH;y++){ const la=(0.5-(y+0.5)/SH)*Math.PI, cl=Math.cos(la), sl=Math.sin(la);
+    for(let x=0;x<SW;x++){ const lo=(x+0.5)/SW*2*Math.PI-Math.PI, px=cl*Math.cos(lo), pz=-cl*Math.sin(lo), i=(y*SW+x)*4;
+      const mar=smooth(0.52,0.6,fbm3(n1,px*1.6,sl*1.6,pz*1.6,3)), det=fbm3(n2,px*6,sl*6,pz*6,4);
+      const v=176-mar*70+(det-0.5)*60; d[i]=v; d[i+1]=v; d[i+2]=v*0.98; d[i+3]=255; } }
+  sg.putImageData(img,0,0);
+  const W=1024,H=512,c=mkCanvas(W,H),g=c.getContext('2d'); g.imageSmoothingEnabled=true; g.drawImage(s,0,0,W,H);
+  const r=mulberry32(7);
+  for(let i=0;i<260;i++){ const x=r()*W,y=40+r()*(H-80),rad=1.5+r()*r()*r()*28;
+    const gr=g.createRadialGradient(x,y,0,x,y,rad); gr.addColorStop(0,'rgba(60,60,60,.45)'); gr.addColorStop(.75,'rgba(90,90,90,.25)');
+    gr.addColorStop(.9,'rgba(235,235,235,.35)'); gr.addColorStop(1,'rgba(235,235,235,0)');
+    g.fillStyle=gr; g.beginPath(); g.arc(x,y,rad,0,7); g.fill(); }
+  return new THREE.CanvasTexture(c);
+}
+function buildMilkyWay(){
+  const W=512,H=256,c=mkCanvas(W,H),g=c.getContext('2d'),img=g.createImageData(W,H),d=img.data,n=makeNoise3(41);
+  const nx=0.3,ny=0.85,nz=0.43, nl=Math.hypot(nx,ny,nz);
+  for(let y=0;y<H;y++){ const la=(0.5-(y+0.5)/H)*Math.PI, cl=Math.cos(la), sl=Math.sin(la);
+    for(let x=0;x<W;x++){ const lo=(x+0.5)/W*2*Math.PI-Math.PI, px=cl*Math.cos(lo), pz=-cl*Math.sin(lo), i=(y*W+x)*4;
+      const dd=(px*nx+sl*ny+pz*nz)/nl, band=Math.exp(-((dd/0.2)**2)), f=fbm3(n,px*4,sl*4,pz*4,4);
+      const v=band*clamp((f-0.35)*2.2,0,1)*120; d[i]=v*0.85; d[i+1]=v*0.88; d[i+2]=v; d[i+3]=255; } }
+  g.putImageData(img,0,0); return new THREE.CanvasTexture(c);
+}
+function makeArrow(len,color,shaft,headLen,headR,opacity){
+  const op=opacity||1, g=new THREE.Group(), m=new THREE.MeshBasicMaterial({color,transparent:op<1,opacity:op});
+  const s=new THREE.Mesh(new THREE.CylinderGeometry(shaft,shaft,len-headLen,8),m); s.position.y=(len-headLen)/2;
+  const h=new THREE.Mesh(new THREE.ConeGeometry(headR,headLen,14),m); h.position.y=len-headLen/2;
+  g.add(s,h); return g;
+}
+
+/* ---------- Overlay labels with collision avoidance + leader lines ----------
+   Labels are placed in priority order (higher prio first). Each label tries several
+   candidate positions around its anchor; a position is accepted only if it does not
+   overlap a label already placed, the view's UI panels (.reserve) or another anchor.
+   Low-priority labels that cannot fit are hidden. The last good position is tried
+   first, so labels do not jump around while the Earth turns. */
+const PIN_C=[ {dx:14,dy:-8,hx:0,hy:1},{dx:14,dy:8,hx:0,hy:0},{dx:-14,dy:-8,hx:1,hy:1},{dx:-14,dy:8,hx:1,hy:0},
+  {dx:0,dy:-16,hx:.5,hy:1},{dx:0,dy:16,hx:.5,hy:0},{dx:44,dy:-36,hx:0,hy:1},{dx:-44,dy:-36,hx:1,hy:1},
+  {dx:44,dy:36,hx:0,hy:0},{dx:-44,dy:36,hx:1,hy:0},{dx:0,dy:-56,hx:.5,hy:1},{dx:0,dy:56,hx:.5,hy:0} ];
+const FREE_C=[ {dx:0,dy:0,hx:.5,hy:.5},{dx:0,dy:-14,hx:.5,hy:1},{dx:0,dy:14,hx:.5,hy:0},{dx:16,dy:0,hx:0,hy:.5},
+  {dx:-16,dy:0,hx:1,hy:.5},{dx:0,dy:-42,hx:.5,hy:1},{dx:0,dy:42,hx:.5,hy:0} ];
+function makeLabelLayer(container,camera,viewEl){
+  const list=[]; let W=1,H=1, reserved=[], lastD='', lastDots='';
+  const v=new THREE.Vector3(), svg=container.querySelector('svg.leaders');
+  const pBg=svg.querySelector('.lbg'), pFg=svg.querySelector('.lfg'), pDot=svg.querySelector('.ldot');
+  const setO=(L,o)=>{ if(L._o!==o){ L._o=o; L.el.style.opacity=o; L.el.style.visibility=o>0?'visible':'hidden'; } };
+  const overlap=(a,b)=>a.l<b.r&&a.r>b.l&&a.t<b.b&&a.b>b.t;
+  const rectFor=(c,ax,ay,w,h,pad)=>{ const dx=c.dx+Math.sign(c.dx)*pad, dy=c.dy+Math.sign(c.dy)*pad;
+    const l=ax+dx-w*c.hx, t=ay+dy-h*c.hy; return {l:l-3,t:t-3,r:l+w+3,b:t+h+3,x:l,y:t}; };
+  return {
+    add(html,opt){ opt=opt||{}; const el=document.createElement('div'); el.className='lbl'+(opt.cls?' '+opt.cls:''); el.innerHTML=html;
+      container.appendChild(el);
+      const L={el,html,getPos:opt.getPos,occlude:opt.occlude||null,mode:opt.mode||'free',prio:opt.prio||5,pad:opt.pad||0,show:true,cand:0,_o:-1,w:0,h:0};
+      list.push(L); return L; },
+    html(L,h){ if(L.html!==h){ L.html=h; L.el.innerHTML=h; L.w=0; } },
+    resize(w,h){ W=w; H=h; this.updateReserved(); },
+    updateReserved(){ const vr=viewEl.getBoundingClientRect();
+      reserved=$$('#'+viewEl.id+' .reserve').filter(e=>e.offsetParent!==null).map(e=>{ const r=e.getBoundingClientRect();
+        return {l:r.left-vr.left-4,t:r.top-vr.top-4,r:r.right-vr.left+4,b:r.bottom-vr.top+4}; }); },
+    update(isOcc,enabled){
+      const items=[];
+      for(const L of list){
+        if(!L.show||!enabled){ setO(L,0); continue; }
+        L.getPos(v); let o=1;
+        if(L.occlude&&isOcc&&isOcc(v)) o=(L.occlude==='hide')?0:0.4;
+        v.project(camera);
+        if(v.z>1||v.x<-1.15||v.x>1.15||v.y<-1.15||v.y>1.15) o=0;
+        if(o===0){ setO(L,0); continue; }
+        if(!L.w){ L.w=L.el.offsetWidth; L.h=L.el.offsetHeight; }
+        items.push({L,o,ax:(v.x*.5+.5)*W,ay:(-v.y*.5+.5)*H});
+      }
+      const placed=reserved.slice();
+      items.forEach(it=>{ if(it.L.mode==='pin'){ const p=5+it.L.pad; placed.push({l:it.ax-p,t:it.ay-p,r:it.ax+p,b:it.ay+p}); } });
+      items.sort((a,b)=>b.L.prio-a.L.prio);
+      let d='',dots='';
+      for(const it of items){
+        const L=it.L, C=L.mode==='pin'?PIN_C:FREE_C;
+        if(L.cand>=C.length) L.cand=0;
+        let rect=null, chosen=-1;
+        const order=[L.cand]; for(let k=0;k<C.length;k++) if(k!==L.cand) order.push(k);
+        for(const k of order){ const r=rectFor(C[k],it.ax,it.ay,L.w,L.h,L.pad);
+          if(r.l<2||r.t<2||r.r>W-2||r.b>H-2) continue;
+          let hit=false; for(const p of placed){ if(overlap(p,r)){ hit=true; break; } }
+          if(!hit){ rect=r; chosen=k; break; } }
+        if(!rect){
+          if(L.prio>=9){ chosen=L.cand; rect=rectFor(C[chosen],it.ax,it.ay,L.w,L.h,L.pad);
+            rect.x=clamp(rect.x,2,Math.max(2,W-L.w-2)); rect.y=clamp(rect.y,2,Math.max(2,H-L.h-2)); }
+          else { setO(L,0); continue; }
+        }
+        L.cand=chosen; placed.push(rect); setO(L,it.o);
+        L.el.style.transform=`translate(${rect.x.toFixed(1)}px,${rect.y.toFixed(1)}px)`;
+        if(L.mode==='pin'&&it.o>0.5){
+          const nx=clamp(it.ax,rect.x,rect.x+L.w), ny=clamp(it.ay,rect.y,rect.y+L.h);
+          const dx=nx-it.ax, dy=ny-it.ay, len=Math.hypot(dx,dy);
+          if(len>L.pad+4){ const sx=it.ax+dx/len*L.pad, sy=it.ay+dy/len*L.pad;
+            d+=`M${sx.toFixed(1)} ${sy.toFixed(1)}L${nx.toFixed(1)} ${ny.toFixed(1)}`; }
+          if(!L.pad) dots+=`M${(it.ax-3).toFixed(1)} ${it.ay.toFixed(1)}a3 3 0 1 0 6 0a3 3 0 1 0 -6 0`;
+        }
+      }
+      if(d!==lastD){ lastD=d; pBg.setAttribute('d',d); pFg.setAttribute('d',d); }
+      if(dots!==lastDots){ lastDots=dots; pDot.setAttribute('d',dots); }
+    }
+  };
+}
+function fovFor(aspect,base){ return aspect>=1.25?base:Math.min(100,2*Math.atan(Math.tan(base/2*DEG)*1.25/aspect)/DEG); }
+
+/* ---------- geometry merging (keeps the skyline to a few draw calls) ---------- */
+const buckets=new Map(), _m4=new THREE.Matrix4(), _q=new THREE.Quaternion(), _e=new THREE.Euler(), _p3=new THREE.Vector3(), _s3=new THREE.Vector3();
+function addGeo(mat,geo,x,y,z,sx,sy,sz,rx,ry,rz){
+  _e.set(rx||0,ry||0,rz||0); _q.setFromEuler(_e); _p3.set(x,y,z); _s3.set(sx||1,sy||1,sz||1);
+  _m4.compose(_p3,_q,_s3);
+  const g=(geo.index?geo.toNonIndexed():geo.clone()); g.applyMatrix4(_m4);
+  if(!buckets.has(mat)) buckets.set(mat,[]); buckets.get(mat).push(g);
+}
+function flushBuckets(scene){
+  buckets.forEach((geos,mat)=>{
+    let n=0; geos.forEach(g=>n+=g.attributes.position.count);
+    const pos=new Float32Array(n*3), nor=new Float32Array(n*3); let o=0;
+    geos.forEach(g=>{ pos.set(g.attributes.position.array,o*3); nor.set(g.attributes.normal.array,o*3); o+=g.attributes.position.count; g.dispose(); });
+    const out=new THREE.BufferGeometry(); out.setAttribute('position',new THREE.BufferAttribute(pos,3)); out.setAttribute('normal',new THREE.BufferAttribute(nor,3));
+    out.computeBoundingSphere(); scene.add(new THREE.Mesh(out,mat));
+  });
+  buckets.clear();
+}
+
+/* =====================================================================
+   4. SPACE SCENE (3D Sun–Earth–Moon)
+   ===================================================================== */
+const PR=Math.min(window.devicePixelRatio||1,2);
+const spaceRenderer=new THREE.WebGLRenderer({antialias:true});
+const groundRenderer=new THREE.WebGLRenderer({antialias:true});
+const spaceWrap=$('#spaceWrap');
+spaceRenderer.setPixelRatio(PR); spaceWrap.appendChild(spaceRenderer.domElement);
+const spaceCanvas=spaceRenderer.domElement;
+const spaceScene=new THREE.Scene(); spaceScene.background=new THREE.Color(0x020309);
+const spaceCamera=new THREE.PerspectiveCamera(45,1,0.1,700);
+const ANISO=spaceRenderer.capabilities.getMaxAnisotropy();
+
+// --- lightweight orbit controls state ---
+const ORBIT_DEF={theta:-12*DEG,phi:68*DEG,radius:19.5};
+const orbit={target:new THREE.Vector3(2.5,0,0),theta:ORBIT_DEF.theta,phi:ORBIT_DEF.phi,radius:ORBIT_DEF.radius};
+function applyOrbit(){ const s=Math.sin(orbit.phi);
+  spaceCamera.position.set(orbit.target.x+orbit.radius*s*Math.sin(orbit.theta), orbit.target.y+orbit.radius*Math.cos(orbit.phi),
+    orbit.target.z+orbit.radius*s*Math.cos(orbit.theta));
+  spaceCamera.lookAt(orbit.target); spaceCamera.updateMatrixWorld(); }
+
+// --- lights: Sun = DirectionalLight (parallel rays) + faint ambient so the night side is not pure black ---
+spaceScene.add(new THREE.AmbientLight(0xffffff,0.10));
+const sunLight=new THREE.DirectionalLight(0xffffff,1.35); sunLight.position.copy(SUN_DIR).multiplyScalar(30); spaceScene.add(sunLight);
+
+// --- background: coloured stars + Milky Way ---
+(function(){ const r=mulberry32(3);
+  [[1100,1.2],[380,2.0],[90,3.0]].forEach(([n,size])=>{
+    const pos=new Float32Array(n*3), cl=new Float32Array(n*3);
+    for(let i=0;i<n;i++){ const u=r()*2-1,th=r()*Math.PI*2,R=240+r()*40,s=Math.sqrt(1-u*u);
+      pos[i*3]=R*s*Math.cos(th); pos[i*3+1]=R*u; pos[i*3+2]=R*s*Math.sin(th);
+      const t=r(), c=t<0.2?[0.72,0.8,1]:(t<0.85?[1,1,1]:[1,0.86,0.68]), b=0.55+r()*0.45;
+      cl[i*3]=c[0]*b; cl[i*3+1]=c[1]*b; cl[i*3+2]=c[2]*b; }
+    const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('color',new THREE.BufferAttribute(cl,3));
+    spaceScene.add(new THREE.Points(g,new THREE.PointsMaterial({size,sizeAttenuation:false,vertexColors:true}))); });
+  spaceScene.add(new THREE.Mesh(new THREE.SphereGeometry(300,48,24),
+    new THREE.MeshBasicMaterial({map:buildMilkyWay(),side:THREE.BackSide,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false})));
+})();
+
+// --- Sun: animated surface with limb darkening + corona (the only light source) ---
+const GLSL_NOISE3=`
+float h3(vec3 p){ p=fract(p*0.3183099+0.1); p*=17.0; return fract(p.x*p.y*p.z*(p.x+p.y+p.z)); }
+float vn3(vec3 x){ vec3 i=floor(x); vec3 f=fract(x); f=f*f*(3.0-2.0*f);
+  return mix(mix(mix(h3(i),h3(i+vec3(1.0,0.0,0.0)),f.x),mix(h3(i+vec3(0.0,1.0,0.0)),h3(i+vec3(1.0,1.0,0.0)),f.x),f.y),
+             mix(mix(h3(i+vec3(0.0,0.0,1.0)),h3(i+vec3(1.0,0.0,1.0)),f.x),mix(h3(i+vec3(0.0,1.0,1.0)),h3(i+vec3(1.0,1.0,1.0)),f.x),f.y),f.z); }`;
+const sunMat=new THREE.ShaderMaterial({ uniforms:{uTime:{value:0}},
+  vertexShader:'varying vec3 vNV; varying vec3 vP; void main(){ vNV=normalize(normalMatrix*normal); vP=position; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+  fragmentShader:`uniform float uTime; varying vec3 vNV; varying vec3 vP; ${GLSL_NOISE3}
+    void main(){ float mu=clamp(dot(normalize(vNV),vec3(0.0,0.0,1.0)),0.0,1.0);
+      float g=vn3(vP*4.0+vec3(uTime*0.15))*0.6+vn3(vP*10.0-vec3(uTime*0.25))*0.4;
+      vec3 col=mix(vec3(1.0,0.58,0.15),vec3(1.0,0.97,0.86),pow(mu,0.5));
+      col*=(0.84+0.3*g)*(0.55+0.45*pow(mu,0.35));
+      gl_FragColor=vec4(col,1.0); }` });
+const sunMesh=new THREE.Mesh(new THREE.SphereGeometry(1.6,48,32),sunMat); sunMesh.position.copy(SUN_POS); spaceScene.add(sunMesh);
+const glowTex=radialTexture([[0,'rgba(255,250,225,1)'],[.2,'rgba(255,225,130,.85)'],[.5,'rgba(255,170,60,.3)'],[1,'rgba(255,140,0,0)']]);
+[[7.5,1],[17,0.35]].forEach(([s,o])=>{ const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:o}));
+  sp.scale.set(s,s,1); sp.position.copy(SUN_POS); spaceScene.add(sp); });
+
+// --- parallel sunlight rays (arrows Sun → Earth) ---
+[[0,0],[1.1,0],[-1.1,0],[0,1.1],[0,-1.1]].forEach(([y,z])=>{
+  const a=makeArrow(6.2,0xF0E442,0.03,0.42,0.13,0.85);
+  a.position.set(9.2,y,z); a.quaternion.setFromUnitVectors(Y_AXIS,SUN_DIR.clone().negate()); spaceScene.add(a); });
+
+// --- Earth: tilt group (axis, arrow) → spin group (globe, clouds, pins) ---
+const tiltGroup=new THREE.Group(); spaceScene.add(tiltGroup);
+const spinGroup=new THREE.Group(); tiltGroup.add(spinGroup);
+const EM=buildEarthMaps(ANISO);
+const earthMesh=new THREE.Mesh(new THREE.SphereGeometry(R_EARTH,128,96),
+  new THREE.MeshPhongMaterial({map:EM.color,bumpMap:EM.bump,bumpScale:0.04,specularMap:EM.spec,specular:new THREE.Color(0x52606e),shininess:30}));
+spinGroup.add(earthMesh);
+const clouds=new THREE.Mesh(new THREE.SphereGeometry(R_EARTH*1.012,96,64),
+  new THREE.MeshLambertMaterial({map:buildCloudTexture(),transparent:true,depthWrite:false,opacity:0.85}));
+spinGroup.add(clouds);
+// atmosphere: thin blue haze on the lit side + glowing rim (turns orange near the terminator)
+const atmoVS='varying vec3 vNW; varying vec3 vNV; varying vec3 vVP; void main(){ vNW=normalize(mat3(modelMatrix)*normal); vNV=normalize(normalMatrix*normal); vec4 mv=modelViewMatrix*vec4(position,1.0); vVP=mv.xyz; gl_Position=projectionMatrix*mv; }';
+spaceScene.add(new THREE.Mesh(new THREE.SphereGeometry(R_EARTH*1.02,96,64),new THREE.ShaderMaterial({
+  uniforms:{uSun:{value:SUN_DIR}}, vertexShader:atmoVS, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false,
+  fragmentShader:`uniform vec3 uSun; varying vec3 vNW; varying vec3 vNV; varying vec3 vVP;
+    void main(){ float k=1.0-max(dot(normalize(vNV),normalize(-vVP)),0.0); float d=dot(normalize(vNW),uSun);
+      float f=smoothstep(-0.25,0.35,d); vec3 c=mix(vec3(1.0,0.5,0.25),vec3(0.35,0.6,1.0),smoothstep(-0.05,0.35,d));
+      gl_FragColor=vec4(c*pow(k,3.0)*0.9*f,1.0); }` })));
+spaceScene.add(new THREE.Mesh(new THREE.SphereGeometry(R_EARTH*1.08,96,64),new THREE.ShaderMaterial({
+  uniforms:{uSun:{value:SUN_DIR}}, vertexShader:atmoVS, side:THREE.BackSide, transparent:true, blending:THREE.AdditiveBlending, depthWrite:false,
+  fragmentShader:`uniform vec3 uSun; varying vec3 vNW; varying vec3 vNV; varying vec3 vVP;
+    void main(){ float k=clamp(-dot(normalize(vNV),normalize(-vVP)),0.0,1.0); float i=pow(clamp(k/0.38,0.0,1.0),1.6);
+      float d=dot(normalize(vNW),uSun); float f=smoothstep(-0.3,0.4,d);
+      vec3 c=mix(vec3(1.0,0.55,0.3),vec3(0.35,0.62,1.0),smoothstep(-0.05,0.35,d));
+      gl_FragColor=vec4(c*i*f*1.2,1.0); }` })));
+
+const axisMesh=new THREE.Mesh(new THREE.CylinderGeometry(0.03,0.03,6.6,8),new THREE.MeshBasicMaterial({color:0xffffff}));
+tiltGroup.add(axisMesh);
+// curved spin arrow above the North Pole (anticlockwise seen from above)
+const spinArrow=new THREE.Group(); spinArrow.position.y=2.75; tiltGroup.add(spinArrow);
+const spinMat=new THREE.MeshBasicMaterial({color:0xE69F00,side:THREE.DoubleSide});
+const arcMesh=new THREE.Mesh(new THREE.TorusGeometry(0.85,0.055,8,48,Math.PI*1.5),spinMat); arcMesh.rotation.x=-Math.PI/2; spinArrow.add(arcMesh);
+const arcHead=new THREE.Mesh(new THREE.ConeGeometry(0.17,0.4,16),spinMat);
+arcHead.position.set(0.18,0,0.85); arcHead.quaternion.setFromUnitVectors(Y_AXIS,new THREE.Vector3(1,0,0)); spinArrow.add(arcHead);
+
+// --- terminator ring (day/night boundary, plane ⟂ sunlight) ---
+const termRing=new THREE.Mesh(new THREE.TorusGeometry(R_EARTH*1.022,0.022,8,180),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.9}));
+termRing.rotation.y=Math.PI/2; spaceScene.add(termRing);
+
+function placeOnSurface(obj,lat,lon){ const n=latLonToVec(lat,lon,1); obj.position.copy(n).multiplyScalar(R_EARTH); obj.quaternion.setFromUnitVectors(Y_AXIS,n); }
+
+// --- Hong Kong observer figure + horizon plane + "up" arrow ---
+const hkGroup=new THREE.Group(); spinGroup.add(hkGroup); placeOnSurface(hkGroup,HK.lat,HK.lon);
+const hDisc=new THREE.Mesh(new THREE.CircleGeometry(0.6,40),new THREE.MeshBasicMaterial({color:0x56B4E9,transparent:true,opacity:0.5,side:THREE.DoubleSide,depthWrite:false}));
+hDisc.rotation.x=-Math.PI/2; hDisc.position.y=0.045; hkGroup.add(hDisc);
+(function(){ const pts=[]; for(let i=0;i<=48;i++){const a=i/48*Math.PI*2; pts.push(new THREE.Vector3(0.6*Math.cos(a),0.05,0.6*Math.sin(a)));}
+  hkGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0xffffff}))); })();
+const hkBody=new THREE.Mesh(new THREE.CylinderGeometry(0.045,0.065,0.2,10),new THREE.MeshBasicMaterial({color:0xD55E00})); hkBody.position.y=0.15; hkGroup.add(hkBody);
+const hkHeadM=new THREE.Mesh(new THREE.SphereGeometry(0.062,14,10),new THREE.MeshBasicMaterial({color:0xffd9b3})); hkHeadM.position.y=0.31; hkGroup.add(hkHeadM);
+const upArrow=makeArrow(0.8,0xffffff,0.016,0.15,0.055,1); upArrow.position.y=0.05; hkGroup.add(upArrow);
+// line of sight from observer to the Sun (shown only when the Sun is above HK's horizon)
+const losMesh=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,2.6,6),new THREE.MeshBasicMaterial({color:0xF0E442}));
+losMesh.quaternion.setFromUnitVectors(Y_AXIS,SUN_DIR); spaceScene.add(losMesh);
+
+// --- comparison city pin (square head) ---
+const cityPin=new THREE.Group(); spinGroup.add(cityPin);
+const cityStick=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.36,8),new THREE.MeshBasicMaterial({color:0xffffff})); cityStick.position.y=0.18;
+const cityHead=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.14,0.14),new THREE.MeshBasicMaterial({color:0xCC79A7})); cityHead.position.y=0.4;
+cityPin.add(cityStick,cityHead);
+
+// --- Moon (simplified, not to scale; lit only by the Sun) ---
+const moonTex=buildMoonTexture();
+const moonMesh=new THREE.Mesh(new THREE.SphereGeometry(0.5,48,32),new THREE.MeshPhongMaterial({map:moonTex,bumpMap:moonTex,bumpScale:0.02,shininess:2,specular:0x000000}));
+spaceScene.add(moonMesh);
+const moonOrbitLine=(function(){ const pts=[]; for(let i=0;i<=96;i++){const a=i/96*Math.PI*2; pts.push(new THREE.Vector3(MOON_DIST*Math.cos(a),0,-MOON_DIST*Math.sin(a)));}
+  return new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x7a86a8,transparent:true,opacity:0.45})); })();
+spaceScene.add(moonOrbitLine);
+
+// --- derived geometry (recomputed when season / spin changes) ---
+let axisWorld=new THREE.Vector3(0,1,0), sunAlphaDeg=0;
+const dawnPos=new THREE.Vector3(), duskPos=new THREE.Vector3();
+function updateDawnDusk(){
+  const c=new THREE.Vector3().crossVectors(axisWorld,SUN_DIR).normalize();             // terminator ∩ equator
+  const vel=new THREE.Vector3().crossVectors(axisWorld,c).multiplyScalar(state.spinDir); // surface motion there
+  const plusIsDawn=vel.dot(SUN_DIR)>0;                                                  // moving INTO sunlight = dawn
+  dawnPos.copy(c).multiplyScalar((plusIsDawn?1:-1)*R_EARTH*1.02); duskPos.copy(dawnPos).negate();
+}
+function applySeasonGeometry(){
+  axisWorld=tiltAxisFor(state.season);
+  tiltGroup.quaternion.setFromUnitVectors(Y_AXIS,axisWorld);
+  tiltGroup.updateMatrixWorld(true);
+  const sL=SUN_DIR.clone().applyQuaternion(tiltGroup.quaternion.clone().invert());
+  sunAlphaDeg=Math.atan2(-sL.z,sL.x)/DEG;   // Sun's "longitude" in the non-spinning Earth frame
+  updateDawnDusk(); rebuildSunPath();
+}
+/** Earth spin angle so HK's hour angle = spinDir·(t−12)·15°  (360° = 24 h). */
+function earthSpinRad(){ return (sunAlphaDeg-HK.lon+state.spinDir*(state.timeOfDay-12)*15)*DEG; }
+
+// --- space labels (prio: higher = placed first) ---
+const spaceLabels=makeLabelLayer($('#spaceLabels'),spaceCamera,$('#spaceView'));
+const SL=spaceLabels;
+const hkUp=new THREE.Vector3(), cityUp=new THREE.Vector3();
+SL.add('☀️ 太陽<small>發光體：自己會發光</small>',{cls:'big',mode:'pin',prio:9,getPos:v=>v.set(SUN_POS.x,1.7,0)});
+SL.add('陽光<small>平行光線</small>',{prio:3,getPos:v=>v.set(6.2,-1.6,0)});
+SL.add('🌍 地球<small>不發光體：自己不會發光</small>',{prio:5,occlude:'fade',getPos:v=>v.set(0,-3.0,0)});
+SL.add('☀️ 白天',{prio:4,occlude:'fade',getPos:v=>v.set(2.7,2.2,0.5)});
+SL.add('🌙 黑夜',{prio:4,occlude:'fade',getPos:v=>v.set(-2.7,2.2,0.5)});
+SL.add('北',{cls:'pole',prio:9,getPos:v=>v.copy(axisWorld).multiplyScalar(3.55)});
+SL.add('南',{cls:'pole',prio:2,occlude:'fade',getPos:v=>v.copy(axisWorld).multiplyScalar(-3.6)});
+const lblSpin=SL.add('',{cls:'spin',mode:'pin',prio:8,getPos:v=>v.copy(axisWorld).multiplyScalar(2.75).addScaledVector(SUN_DIR,0.85)});
+SL.add('🌅 黎明<small>正轉入陽光中</small>',{cls:'term',mode:'pin',prio:7,occlude:'fade',getPos:v=>v.copy(dawnPos)});
+SL.add('🌇 黃昏<small>正轉入黑暗中</small>',{cls:'term',mode:'pin',prio:7,occlude:'fade',getPos:v=>v.copy(duskPos)});
+const lblHK=SL.add('',{cls:'hk',mode:'pin',prio:10,occlude:'hide',getPos:v=>v.copy(hkUp).multiplyScalar(R_EARTH+0.31)});
+const lblCity=SL.add('',{cls:'city',mode:'pin',prio:9,occlude:'hide',getPos:v=>v.copy(cityUp).multiplyScalar(R_EARTH+0.4)});
+const lblMoon=SL.add('🌙 月球',{mode:'pin',prio:6,occlude:'fade',getPos:v=>v.copy(moonMesh.position).setY(0.5)});
+const _oc=new THREE.Vector3();
+function occludedByEarth(p){ const cam=spaceCamera.position; _oc.subVectors(p,cam); const d=_oc.length(); _oc.divideScalar(d);
+  const b=cam.dot(_oc), c=cam.lengthSq()-R_EARTH*R_EARTH, disc=b*b-c; if(disc<0) return false;
+  const t=-b-Math.sqrt(disc); return t>0&&t<d-0.05; }
+
+/* =====================================================================
+   5. GROUND SCENE – observer on the Tsim Sha Tsui waterfront, facing Hong Kong Island
+   Axes: North = -Z, East = +X, South = +Z, West = -X, Up = +Y.  1 unit ≈ 10 m.
+   ===================================================================== */
+const groundWrap=$('#groundWrap');
+groundRenderer.setPixelRatio(PR); groundWrap.appendChild(groundRenderer.domElement);
+const groundCanvas=groundRenderer.domElement;
+const groundScene=new THREE.Scene();
+const FOG_NEAR=280, FOG_FAR=1800; groundScene.fog=new THREE.Fog(0x000000,FOG_NEAR,FOG_FAR);
+const EYE=new THREE.Vector3(0,1.25,-1);
+const groundCamera=new THREE.PerspectiveCamera(68,1,0.2,4200); groundCamera.position.copy(EYE);
+const SKY_R=2000, SUN_D=1700, MOON_D=1650, PATH_D=1600, STAR_R=1900;
+const tn=makeNoise3(99);
+const GLSL_NOISE2=`
+float hash2(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }
+float n2(vec2 p){ vec2 i=floor(p), f=fract(p); f=f*f*(3.0-2.0*f);
+  return mix(mix(hash2(i),hash2(i+vec2(1.0,0.0)),f.x),mix(hash2(i+vec2(0.0,1.0)),hash2(i+vec2(1.0,1.0)),f.x),f.y); }`;
+
+// --- sky dome: gradient, horizon haze, sunrise/sunset band, glow around the Sun, moving clouds ---
+const skyMat=new THREE.ShaderMaterial({ side:THREE.BackSide, depthWrite:false,
+  uniforms:{ uZenith:{value:new THREE.Color()}, uHorizon:{value:new THREE.Color()}, uBand:{value:new THREE.Color()}, uBandI:{value:0},
+    uGlowCol:{value:new THREE.Color()}, uSunDir:{value:new THREE.Vector3(0,1,0)}, uSunI:{value:1}, uTime:{value:0},
+    uCloudLit:{value:new THREE.Color()}, uCloudDark:{value:new THREE.Color()}, uCloudAmt:{value:0.55} },
+  vertexShader:'varying vec3 vDir; void main(){ vDir=normalize(position); gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+  fragmentShader:`uniform vec3 uZenith,uHorizon,uBand,uGlowCol,uSunDir,uCloudLit,uCloudDark; uniform float uBandI,uSunI,uTime,uCloudAmt;
+    varying vec3 vDir; ${GLSL_NOISE2}
+    float fbm(vec2 p){ float s=0.0,a=0.5; for(int i=0;i<5;i++){ s+=a*n2(p); p=p*2.03+vec2(1.7,9.2); a*=0.5; } return s; }
+    void main(){
+      vec3 d=normalize(vDir); float h=d.y, hp=max(h,0.0); vec3 sd=normalize(uSunDir);
+      vec3 col=mix(uHorizon,uZenith,pow(hp,0.42));
+      vec2 dh=normalize(d.xz+vec2(1e-4)), sh=normalize(sd.xz+vec2(1e-4));
+      float toward=dot(dh,sh)*0.5+0.5;
+      col=mix(col,uBand,clamp(exp(-hp*7.0)*pow(toward,1.6)*uBandI,0.0,1.0));
+      float m=max(dot(d,sd),0.0);
+      col+=uGlowCol*(pow(m,6.0)*0.22+pow(m,48.0)*0.5+pow(m,700.0)*0.9)*uSunI;
+      if(h<0.0) col=mix(uHorizon,uHorizon*0.35,clamp(-h*5.0,0.0,1.0));
+      if(h>0.0){
+        vec2 p=d.xz/(h+0.12)*1.5+vec2(uTime*0.004,uTime*0.002);
+        float c=fbm(p);
+        float cov=smoothstep(0.56-uCloudAmt*0.1,0.8,c)*smoothstep(0.0,0.12,h);
+        float lit=clamp(0.55+(c-fbm(p+sh*0.06))*5.0,0.0,1.0);
+        vec3 cc=mix(uCloudDark,uCloudLit,lit)+uGlowCol*pow(m,8.0)*0.35*uSunI;
+        col=mix(col,cc,cov*0.88);
+      }
+      gl_FragColor=vec4(col,1.0); }` });
+const skyMesh=new THREE.Mesh(new THREE.SphereGeometry(SKY_R,48,24),skyMat); skyMesh.renderOrder=-1; groundScene.add(skyMesh);
+
+// --- stars ---
+const starMat=new THREE.PointsMaterial({color:0xffffff,size:2,sizeAttenuation:false,transparent:true,opacity:0,fog:false,depthWrite:false});
+(function(){ const n=1100,pos=new Float32Array(n*3),r=mulberry32(5);
+  for(let i=0;i<n;i++){ const y=0.03+r()*0.97,th=r()*Math.PI*2,s=Math.sqrt(1-y*y);
+    pos[i*3]=STAR_R*s*Math.cos(th); pos[i*3+1]=STAR_R*y; pos[i*3+2]=STAR_R*s*Math.sin(th); }
+  const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); groundScene.add(new THREE.Points(g,starMat)); })();
+
+// --- Sun (glow + bright disc) ---
+const gSunGlow=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,fog:false}));
+gSunGlow.scale.set(380,380,1); groundScene.add(gSunGlow);
+const discTex=radialTexture([[0,'rgba(255,255,245,1)'],[.42,'rgba(255,248,215,1)'],[.5,'rgba(255,220,120,0)'],[1,'rgba(0,0,0,0)']]);
+const gSunDisc=new THREE.Sprite(new THREE.SpriteMaterial({map:discTex,transparent:true,depthWrite:false,fog:false}));
+gSunDisc.scale.set(105,105,1); groundScene.add(gSunDisc);
+
+// --- Moon in the sky (lit by the Sun, so its phase appears naturally) ---
+const gMoonMat=new THREE.ShaderMaterial({ uniforms:{map:{value:moonTex},sunDir:{value:new THREE.Vector3(1,0,0)}},
+  vertexShader:'varying vec3 vN; varying vec2 vUv; void main(){ vN=normalize(mat3(modelMatrix)*normal); vUv=uv; gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0); }',
+  fragmentShader:'uniform sampler2D map; uniform vec3 sunDir; varying vec3 vN; varying vec2 vUv; void main(){ float l=max(dot(normalize(vN),normalize(sunDir)),0.0); vec3 c=texture2D(map,vUv).rgb; gl_FragColor=vec4(c*(l*1.25+0.03),1.0); }' });
+const gMoon=new THREE.Mesh(new THREE.SphereGeometry(40,32,20),gMoonMat); groundScene.add(gMoon);
+
+// --- lights ---
+const hemi=new THREE.HemisphereLight(0xbcd7ff,0x3a3a30,0.6); groundScene.add(hemi);
+const gSunLight=new THREE.DirectionalLight(0xffffff,1); groundScene.add(gSunLight);
+
+// --- Victoria Harbour: animated water with sky reflection, sun glitter and city-light reflections ---
+const waterMat=new THREE.ShaderMaterial({
+  uniforms:{ uTime:{value:0}, uSunDir:{value:new THREE.Vector3(0,1,0)}, uSunCol:{value:new THREE.Color()}, uSunI:{value:1},
+    uZenith:{value:new THREE.Color()}, uHorizon:{value:new THREE.Color()}, uDeep:{value:new THREE.Color()},
+    uFogCol:{value:new THREE.Color()}, uFogNear:{value:FOG_NEAR}, uFogFar:{value:FOG_FAR}, uNight:{value:0}, uCity:{value:new THREE.Color(1.0,0.75,0.45)} },
+  vertexShader:'varying vec3 vWP; void main(){ vec4 w=modelMatrix*vec4(position,1.0); vWP=w.xyz; gl_Position=projectionMatrix*viewMatrix*w; }',
+  fragmentShader:`uniform float uTime,uSunI,uFogNear,uFogFar,uNight; uniform vec3 uSunDir,uSunCol,uZenith,uHorizon,uDeep,uFogCol,uCity;
+    varying vec3 vWP; ${GLSL_NOISE2}
+    float wv(vec2 p){ return n2(p*0.45+vec2(uTime*0.35,uTime*0.21))*0.55+n2(p*1.1-vec2(uTime*0.27,-uTime*0.5))*0.3+n2(p*2.7+vec2(uTime*0.8,uTime*0.6))*0.15; }
+    void main(){
+      vec3 toCam=cameraPosition-vWP; float dist=length(toCam); vec3 V=toCam/dist;
+      float e=0.08; float h0=wv(vWP.xz); float hx=wv(vWP.xz+vec2(e,0.0)); float hz=wv(vWP.xz+vec2(0.0,e));
+      float amp=0.9*(1.0-smoothstep(40.0,700.0,dist))+0.08;
+      vec3 N=normalize(vec3((h0-hx)/e*amp*0.35,1.0,(h0-hz)/e*amp*0.35));
+      vec3 R=reflect(-V,N); R.y=abs(R.y);
+      vec3 sky=mix(uHorizon,uZenith,pow(clamp(R.y,0.0,1.0),0.45));
+      float fr=0.03+0.97*pow(1.0-max(dot(N,V),0.0),5.0);
+      vec3 col=mix(uDeep,sky,fr);
+      float s=max(dot(R,normalize(uSunDir)),0.0);
+      col+=uSunCol*(pow(s,350.0)*7.0+pow(s,60.0)*0.5)*uSunI;
+      float streak=smoothstep(0.62,0.95,n2(vec2(vWP.x*0.55,vWP.z*0.03+uTime*0.6)));
+      float zone=smoothstep(116.0,92.0,vWP.z)*smoothstep(8.0,40.0,vWP.z)*step(abs(vWP.x),330.0);
+      col+=uCity*streak*zone*uNight*0.55;
+      gl_FragColor=vec4(mix(col,uFogCol,smoothstep(uFogNear,uFogFar,dist)),1.0); }` });
+const water=new THREE.Mesh(new THREE.CircleGeometry(1900,96),waterMat); water.rotation.x=-Math.PI/2; groundScene.add(water);
+
+// --- Kowloon waterfront (where we stand): raised land with a sea wall ---
+const KOWLOON=[[-2000,-2000],[2000,-2000],[2000,-700],[420,-320],[210,-130],[115,-35],[80,2],[-30,2],[-30,24],[-46,24],[-46,2],
+  [-75,2],[-120,-22],[-260,-28],[-420,-200],[-2000,-650]];
+function inPoly(x,z,poly){ let c=false; for(let i=0,j=poly.length-1;i<poly.length;j=i++){ const xi=poly[i][0],zi=poly[i][1],xj=poly[j][0],zj=poly[j][1];
+  if(((zi>z)!==(zj>z))&&(x<(xj-xi)*(z-zi)/(zj-zi)+xi)) c=!c; } return c; }
+(function(){
+  const pc=mkCanvas(256,256), g=pc.getContext('2d'), r=mulberry32(13);
+  g.fillStyle='#a8a49b'; g.fillRect(0,0,256,256);
+  for(let i=0;i<3000;i++){ const v=140+r()*60; g.fillStyle=`rgba(${v|0},${(v-4)|0},${(v-10)|0},.35)`; g.fillRect(r()*256,r()*256,2,2); }
+  g.strokeStyle='rgba(80,78,72,.35)'; g.lineWidth=2;
+  for(let k=0;k<=256;k+=64){ g.beginPath(); g.moveTo(k,0); g.lineTo(k,256); g.moveTo(0,k); g.lineTo(256,k); g.stroke(); }
+  const tex=new THREE.CanvasTexture(pc); tex.wrapS=tex.wrapT=THREE.RepeatWrapping; tex.repeat.set(0.25,0.25); tex.anisotropy=ANISO;
+  const shape=new THREE.Shape(KOWLOON.map(([x,z])=>new THREE.Vector2(x,-z)));
+  const geo=new THREE.ExtrudeGeometry(shape,{depth:0.6,bevelEnabled:false}); geo.rotateX(-Math.PI/2);
+  groundScene.add(new THREE.Mesh(geo,[new THREE.MeshLambertMaterial({map:tex}),new THREE.MeshLambertMaterial({color:0x8a8a86})]));
+})();
+
+// --- terrain helpers (hills with vertex colours) ---
+function terrainMesh(w,d,cx,cz,sx,sz,hFn){
+  const g=new THREE.PlaneGeometry(w,d,sx,sz); g.rotateX(-Math.PI/2); g.translate(cx,0,cz);
+  const p=g.attributes.position; for(let i=0;i<p.count;i++) p.setY(i,hFn(p.getX(i),p.getZ(i)));
+  g.computeVertexNormals();
+  const nrm=g.attributes.normal, col=new Float32Array(p.count*3);
+  for(let i=0;i<p.count;i++){ const x=p.getX(i),y=p.getY(i),z=p.getZ(i),ny=nrm.getY(i); let r,gg,b;
+    if(y<-0.3){ r=0.25;gg=0.27;b=0.22; }
+    else if(y<1.7){ r=0.5;gg=0.5;b=0.48; }
+    else { const k=fbm3(tn,x*0.05,y*0.05,z*0.05,3); r=0.2+0.12*k; gg=0.32+0.12*k; b=0.17+0.07*k;
+      if(ny<0.8){ const q=clamp((0.8-ny)*3,0,0.6); r+=(0.45-r)*q; gg+=(0.42-gg)*q; b+=(0.36-b)*q; } }
+    col[i*3]=r; col[i*3+1]=gg; col[i*3+2]=b; }
+  g.setAttribute('color',new THREE.BufferAttribute(col,3));
+  groundScene.add(new THREE.Mesh(g,new THREE.MeshLambertMaterial({vertexColors:true})));
+}
+const peakSum=(x,z,peaks)=>{ let h=0; for(const [px,pz,ph,pr] of peaks) h+=ph*Math.exp(-((x-px)**2+(z-pz)**2)/(pr*pr)*1.6); return h; };
+// Hong Kong Island: Victoria Peak ridge etc.; flat built-up strip along the north shore
+const ISLAND_PEAKS=[[-70,300,55,130],[40,330,44,110],[150,300,40,110],[-220,270,27,90],[270,290,48,110],[-130,380,38,120],[90,420,40,140]];
+function islandH(x,z){
+  let h=peakSum(x,z,ISLAND_PEAKS)*(0.85+0.3*fbm3(tn,x*0.012,0,z*0.012,4))+(fbm3(tn,x*0.04,5,z*0.04,3)-0.5)*6;
+  h=0.8+Math.max(0,h)*smooth(150,235,z);
+  const coast=106+(fbm3(tn,x*0.02,9,0,2)-0.5)*8, land=smooth(coast-4,coast+4,z)*(1-smooth(360,470,Math.abs(x)));
+  return h*land-3*(1-land);
+}
+terrainMesh(1000,620,0,395,200,124,islandH);
+// Kowloon hills to the north (Lion Rock, Beacon Hill, Kowloon Peak…); flat part sits below the land surface
+const KOW_PEAKS=[[-80,-640,48,150],[-260,-600,42,140],[150,-700,42,150],[340,-720,58,170],[-520,-950,70,260],[600,-650,40,160]];
+terrainMesh(2400,900,0,-850,120,45,(x,z)=>0.2+Math.max(0,peakSum(x,z,KOW_PEAKS)*(0.8+0.4*fbm3(tn,x*0.01,1,z*0.01,4))-4)*smooth(-420,-560,z));
+// distant islands to the west / south-west and hills to the east (leaving a gap near due east)
+function islandAt(cx,cz,size,peaks){ terrainMesh(size,size,cx,cz,60,60,(x,z)=>{
+  const h=peakSum(x,z,peaks)*(0.8+0.4*fbm3(tn,x*0.01,3,z*0.01,3));
+  const f=1-smooth(size*0.3,size*0.5,Math.hypot(x-cx,z-cz)); return h*f-4*(1-f); }); }
+islandAt(-1250,150,900,[[-1250,120,60,220],[-1100,260,45,180],[-1400,-50,40,200]]);
+islandAt(-700,-250,400,[[-700,-250,25,120]]);
+islandAt(950,-280,600,[[900,-300,30,160],[1100,-200,24,140]]);
+islandAt(900,330,600,[[880,320,32,170],[1050,420,28,160]]);
+
+// --- buildings with procedural window grids (lit randomly at night, reflecting the sky by day) ---
+const U_NIGHT={value:0}, U_SKYREF={value:new THREE.Color(0,0,0)};
+function facadeHook(shader){
+  const s=this.userData.facade;
+  shader.uniforms.uNight=U_NIGHT; shader.uniforms.uSkyRef=U_SKYREF;
+  shader.uniforms.uCell={value:new THREE.Vector2(s.cw,s.ch)}; shader.uniforms.uFrac={value:new THREE.Vector2(s.fx,s.fy)};
+  shader.uniforms.uGlass={value:new THREE.Color(s.glass)}; shader.uniforms.uLit={value:s.lit}; shader.uniforms.uRefl={value:s.refl};
+  shader.vertexShader=shader.vertexShader
+    .replace('#include <common>','#include <common>\nvarying vec3 vWP;\nvarying vec3 vWN;')
+    .replace('#include <worldpos_vertex>','#include <worldpos_vertex>\nvWP=(modelMatrix*vec4(transformed,1.0)).xyz;\nvWN=normalize(mat3(modelMatrix)*objectNormal);');
+  shader.fragmentShader=shader.fragmentShader
+    .replace('#include <common>',`#include <common>
+varying vec3 vWP; varying vec3 vWN;
+uniform float uNight; uniform vec3 uSkyRef; uniform vec2 uCell; uniform vec2 uFrac; uniform vec3 uGlass; uniform float uLit; uniform float uRefl;
+float fHash(vec2 p){ return fract(sin(dot(p,vec2(127.1,311.7)))*43758.5453); }`)
+    .replace('#include <map_fragment>',`#include <map_fragment>
+vec3 fN=normalize(vWN); float winM=0.0; float winOn=0.0;
+if(abs(fN.y)<0.5){
+  float fu=abs(fN.x)>abs(fN.z)?vWP.z:vWP.x;
+  vec2 fc=vec2(fu,vWP.y)/uCell; vec2 ff=fract(fc); vec2 fid=floor(fc)+floor(vWP.xz*0.11)*7.0;
+  vec2 fw=fwidth(fc)+1e-4; vec2 lo=vec2(0.5)-uFrac*0.5; vec2 hi=vec2(0.5)+uFrac*0.5;
+  vec2 fa=smoothstep(lo-fw,lo+fw,ff)-smoothstep(hi-fw,hi+fw,ff);
+  float fBlur=clamp(max(fw.x,fw.y)*1.6-0.25,0.0,1.0);
+  winM=mix(fa.x*fa.y,uFrac.x*uFrac.y,fBlur);
+  float fOn=step(1.0-uLit,fHash(fid+vec2(3.1,7.7)));
+  winOn=mix(fOn*(0.6+0.7*fHash(fid*1.7)),uLit*0.9,fBlur);
+  diffuseColor.rgb=mix(diffuseColor.rgb,uGlass*(0.85+0.3*fHash(fid*0.37)),winM);
+} else { diffuseColor.rgb*=0.72; }`)
+    .replace('#include <emissivemap_fragment>',`#include <emissivemap_fragment>
+totalEmissiveRadiance+=vec3(1.0,0.78,0.45)*winM*winOn*uNight*1.1;
+totalEmissiveRadiance+=uSkyRef*winM*uRefl*0.35;`);
+}
+function facadeMat(color,f){ const m=new THREE.MeshLambertMaterial({color}); m.userData.facade=f; m.extensions={derivatives:true}; m.onBeforeCompile=facadeHook; return m; }
+const FM={
+  glassBlue:  facadeMat('#5d7487',{cw:2.2,ch:0.45,fx:0.86,fy:0.78,glass:'#2c4a5e',lit:0.55,refl:0.55}),
+  glassGreen: facadeMat('#6b8580',{cw:2.0,ch:0.45,fx:0.88,fy:0.8, glass:'#2f5552',lit:0.55,refl:0.55}),
+  concrete:   facadeMat('#cfcabf',{cw:1.4,ch:0.38,fx:0.5, fy:0.5, glass:'#3a4552',lit:0.65,refl:0.15}),
+  beige:      facadeMat('#bfae95',{cw:1.2,ch:0.36,fx:0.45,fy:0.48,glass:'#39424c',lit:0.65,refl:0.12}),
+  resi:       facadeMat('#d9d6cf',{cw:1.0,ch:0.32,fx:0.4, fy:0.45,glass:'#4a5560',lit:0.75,refl:0.1}),
+  darkGlass:  facadeMat('#3a4048',{cw:2.4,ch:0.47,fx:0.9, fy:0.85,glass:'#1c2630',lit:0.4, refl:0.65}),
+  ifc:        facadeMat('#a8b8c6',{cw:1.6,ch:0.44,fx:0.8, fy:0.86,glass:'#5a7186',lit:0.5, refl:0.6}),
+  gold:       facadeMat('#c9b27a',{cw:1.5,ch:0.42,fx:0.8, fy:0.8, glass:'#7c6a3e',lit:0.55,refl:0.5})
+};
+const FM_LIST=[FM.glassBlue,FM.glassGreen,FM.concrete,FM.beige,FM.resi,FM.darkGlass];
+const PLAIN={ steel:new THREE.MeshLambertMaterial({color:0xc8ced6}), brick:new THREE.MeshLambertMaterial({color:0xc98f5c}),
+  pink:new THREE.MeshLambertMaterial({color:0xd8b8a8}), dome:new THREE.MeshLambertMaterial({color:0xefe9dd}),
+  roofGrey:new THREE.MeshLambertMaterial({color:0x9aa2a8}) };
+const BOX=new THREE.BoxGeometry(1,1,1);
+const LAMP_X=[-36,-24,-12,12,24,36];
+function bld(mat,x,z,w,d,h,base){ addGeo(mat,BOX,x,base+h/2,z,w,h,d); }
+const LANDMARKS=[[-55,120],[-68,128],[-12,140],[-25,134],[-110,132],[65,128],[110,165],[45,112]];
+const nearLandmark=(x,z)=>LANDMARKS.some(([lx,lz])=>Math.hypot(x-lx,z-lz)<8);
+(function(){
+  const r=mulberry32(21);
+  const distH=x=>x<-180?[6,16]:x<-90?[10,22]:x<15?[16,30]:x<120?[12,26]:x<230?[10,22]:[7,16];
+  // Hong Kong Island waterfront rows (Sheung Wan → Central → Wan Chai → Causeway Bay → North Point)
+  [[114,122],[124,136],[138,152],[154,170]].forEach(([z0,z1],row)=>{
+    for(let x=-320;x<=330;x+=3.5+r()*3){
+      const z=z0+r()*(z1-z0); if(nearLandmark(x,z)) continue;
+      const base=islandH(x,z); if(base<0.3) continue;
+      const [a,b]=distH(x), w=3+r()*3, d=3+r()*3, h=(a+r()*(b-a))*(0.75+0.1*row+r()*0.2);
+      bld(FM_LIST[(r()*FM_LIST.length)|0],x,z,w,d,h,base-0.4); } });
+  // Mid-Levels residential towers on the slopes
+  for(let i=0;i<110;i++){ const x=-220+r()*380, z=175+r()*60, base=islandH(x,z);
+    if(base<1.5||base>25) continue; bld(r()<0.6?FM.resi:FM.concrete,x,z,2.5+r()*1.5,2.5+r()*1.5,8+r()*9,base-1); }
+  // Landmarks (stylised shapes)
+  const ib=islandH(-55,120)-0.3;                                                                                          // IFC 2
+  bld(FM.ifc,-55,120,6.2,6.2,30,ib); bld(FM.ifc,-55,120,5.4,5.4,8,ib+30); bld(FM.ifc,-55,120,4.6,4.6,4,ib+38);
+  [[-2.1,-2.1],[2.1,-2.1],[-2.1,2.1],[2.1,2.1]].forEach(([dx,dz])=>addGeo(FM.ifc,BOX,-55+dx,ib+43.5,120+dz,0.4,3.5,0.4));
+  bld(FM.ifc,-68,128,3.6,4.5,21,islandH(-68,128)-0.3);                                                                   // IFC 1
+  const bb=islandH(-12,140)-0.3;                                                                                          // Bank of China Tower
+  addGeo(FM.darkGlass,new THREE.CylinderGeometry(0.5,4.3,31,4),-12,bb+15.5,140,1,1,1,0,Math.PI/4,0);
+  addGeo(PLAIN.steel,new THREE.CylinderGeometry(0.1,0.12,6,6),-12.4,bb+34,140);
+  addGeo(PLAIN.steel,new THREE.CylinderGeometry(0.1,0.12,5,6),-11.6,bb+33.5,140);
+  bld(FM.darkGlass,-25,134,5,5,28,islandH(-25,134)-0.3);                                                                 // Cheung Kong Center
+  const cb=islandH(-110,132)-0.3; bld(FM.glassBlue,-110,132,5,5,30,cb); bld(FM.glassBlue,-110,132,3.6,3.6,4,cb+30);     // The Center
+  const pb=islandH(65,128)-0.3;                                                                                           // Central Plaza
+  addGeo(FM.gold,new THREE.CylinderGeometry(4,4,30,3),65,pb+15,128); addGeo(FM.gold,new THREE.ConeGeometry(4,4.5,3),65,pb+32.2,128);
+  addGeo(PLAIN.steel,new THREE.CylinderGeometry(0.1,0.15,7,6),65,pb+37.8,128);
+  addGeo(FM.concrete,new THREE.CylinderGeometry(2.6,2.6,22,20),110,islandH(110,165)+10.6,165);                            // Hopewell Centre
+  const hb=islandH(45,112)-0.2;                                                                                           // Convention Centre
+  bld(FM.glassBlue,45,113,28,14,2.2,hb); addGeo(PLAIN.roofGrey,new THREE.CylinderGeometry(7,7,28,24),45,hb+2.2,113,0.3,1,1,0,0,Math.PI/2);
+  // Kowloon side (behind us)
+  for(let i=0;i<260;i++){ const x=-420+r()*840, z=-18-r()*380;
+    if(!inPoly(x,z,KOWLOON)) continue; if(x>-48&&x<35&&z>-50) continue; if(Math.hypot(x+215,z+70)<10) continue;
+    bld(FM_LIST[(r()*FM_LIST.length)|0],x,z,3+r()*4,3+r()*4,4+r()*16*(z<-120?1.2:0.8),0.6); }
+  bld(FM.glassBlue,-215,-70,7,7,44,0.6); bld(FM.glassBlue,-215,-70,5.6,5.6,4.4,44.6);                                    // ICC
+  bld(PLAIN.brick,-35,-12,2.2,2.2,4.4,0.6); addGeo(PLAIN.brick,new THREE.ConeGeometry(1.8,2,4),-35,6,-12,1,1,1,0,Math.PI/4,0); // Clock Tower
+  bld(PLAIN.pink,-12,-26,26,20,3.2,0.6);                                                                                  // Cultural Centre
+  addGeo(PLAIN.dome,new THREE.SphereGeometry(4,24,12,0,Math.PI*2,0,Math.PI/2),16,0.6,-18,1,0.8,1);                       // Space Museum dome
+  // promenade railing + lamp posts
+  for(let x=-40;x<=40;x+=1.5) addGeo(PLAIN.steel,BOX,x,0.76,1.7,0.05,0.32,0.05);
+  [0.92,0.76].forEach(y=>addGeo(PLAIN.steel,new THREE.CylinderGeometry(0.02,0.02,80,6),0,y,1.7,1,1,1,0,0,Math.PI/2));
+  LAMP_X.forEach(x=>addGeo(PLAIN.steel,new THREE.CylinderGeometry(0.035,0.05,2.0,8),x,1.6,1.2));
+  flushBuckets(groundScene);
+})();
+// lamp heads (glow at night)
+const lampHeadMat=new THREE.MeshBasicMaterial({color:0x777777});
+const lampGlowMat=new THREE.SpriteMaterial({map:glowTex,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:0});
+LAMP_X.forEach(x=>{ const h=new THREE.Mesh(new THREE.SphereGeometry(0.12,12,8),lampHeadMat); h.position.set(x,2.65,1.2); groundScene.add(h);
+  const s=new THREE.Sprite(lampGlowMat); s.scale.set(1.8,1.8,1); s.position.copy(h.position); groundScene.add(s); });
+
+// --- boats: two Star Ferries crossing to Central and a red-sail junk ---
+const boatLightMat=new THREE.MeshBasicMaterial({color:0x333333});
+function makeFerry(){ const g=new THREE.Group();
+  const green=new THREE.MeshLambertMaterial({color:0x2e6b3e}), white=new THREE.MeshLambertMaterial({color:0xe9ece6});
+  const hull=new THREE.Mesh(new THREE.BoxGeometry(3.6,0.45,1.2),green); hull.position.y=0.22;
+  const deck=new THREE.Mesh(new THREE.BoxGeometry(3.0,0.5,1.05),white); deck.position.y=0.68;
+  const win=new THREE.Mesh(new THREE.BoxGeometry(3.02,0.14,1.07),boatLightMat); win.position.y=0.74;
+  const roof=new THREE.Mesh(new THREE.BoxGeometry(3.2,0.08,1.15),green); roof.position.y=0.97;
+  g.add(hull,deck,win,roof); groundScene.add(g); return g; }
+function makeJunk(){ const g=new THREE.Group();
+  const hull=new THREE.Mesh(new THREE.BoxGeometry(3.2,0.5,1.0),new THREE.MeshLambertMaterial({color:0x5a3b22})); hull.position.y=0.25; g.add(hull);
+  const sailMat=new THREE.MeshLambertMaterial({color:0xb3342b,side:THREE.DoubleSide});
+  const sh=new THREE.Shape(); sh.moveTo(0,0); sh.lineTo(1.0,0.15); sh.lineTo(1.25,2.0); sh.lineTo(-0.15,2.25); sh.closePath();
+  const sg=new THREE.ShapeGeometry(sh);
+  [-1.0,0.0,0.95].forEach((x,i)=>{ const s=new THREE.Mesh(sg,sailMat); s.position.set(x-0.5,0.5,0); s.scale.setScalar(i===1?1.15:0.85); g.add(s); });
+  const lt=new THREE.Mesh(new THREE.BoxGeometry(2.6,0.1,1.02),boatLightMat); lt.position.y=0.45; g.add(lt);
+  groundScene.add(g); return g; }
+const ferries=[makeFerry(),makeFerry()], junk=makeJunk();
+function updateBoats(t){
+  ferries.forEach((f,i)=>{ const ph=(t/180+i*0.5)%1, s=ph<0.5?ph*2:2-ph*2, e=s*s*(3-2*s);
+    const ax=-38,az=26,bx=-60,bz=104;
+    f.position.set(ax+(bx-ax)*e,0.05*Math.sin(t*1.3+i),az+(bz-az)*e); f.rotation.y=-Math.atan2(bz-az,bx-ax); });
+  const jp=(t/300)%1; junk.position.set(-260+520*jp,0.05*Math.sin(t*1.1),58);
+}
+
+// --- Sun's path (dotted arc that builds up during the day) ---
+const PATH_N=24*6+1, pathPos=new Float32Array(PATH_N*3);
+const pathGeo=new THREE.BufferGeometry(); pathGeo.setAttribute('position',new THREE.BufferAttribute(pathPos,3));
+const dotTex=radialTexture([[0,'rgba(255,255,255,1)'],[.6,'rgba(255,255,255,1)'],[.75,'rgba(255,255,255,0)'],[1,'rgba(255,255,255,0)']]);
+groundScene.add(new THREE.Points(pathGeo,new THREE.PointsMaterial({color:0xfff3a0,size:9,map:dotTex,transparent:true,alphaTest:0.4,sizeAttenuation:false,fog:false})));
+const HOUR_MARKS=[6,9,12,15,18], hourInfo={}, _tmp=new THREE.Vector3();
+function rebuildSunPath(){
+  const ds=SEASONS[state.season].decSign;
+  for(let i=0;i<PATH_N;i++){ const s=sunAzAlt(i/6,HK.lat,HK.lon,TILT,state.spinDir,ds); azAltToVec(s.az,s.alt,PATH_D,_tmp);
+    pathPos[i*3]=_tmp.x; pathPos[i*3+1]=_tmp.y; pathPos[i*3+2]=_tmp.z; }
+  pathGeo.attributes.position.needsUpdate=true; pathGeo.computeBoundingSphere();
+  HOUR_MARKS.forEach(h=>{ const s=sunAzAlt(h,HK.lat,HK.lon,TILT,state.spinDir,ds); hourInfo[h]={alt:s.alt,pos:azAltToVec(s.az,s.alt,PATH_D,new THREE.Vector3())}; });
+}
+
+// --- ground labels: compass directions, places, Sun, Moon, hour marks ---
+const groundLabels=makeLabelLayer($('#groundLabels'),groundCamera,$('#groundView'));
+[[0,'北'],[90,'東'],[180,'南'],[270,'西']].forEach(([az,t])=>groundLabels.add(t,{cls:'compass',prio:9,getPos:v=>azAltToVec(az,0,130,v).setY(6)}));
+[[45,'東北'],[135,'東南'],[225,'西南'],[315,'西北']].forEach(([az,t])=>groundLabels.add(t,{cls:'compass2',prio:2,getPos:v=>azAltToVec(az,0,130,v).setY(4)}));
+groundLabels.add('地平線',{cls:'tiny',prio:1,getPos:v=>azAltToVec(100,0,1500,v)});
+groundLabels.add('維多利亞港',{cls:'place',prio:1,getPos:v=>v.set(30,0.5,60)});
+groundLabels.add('香港島',{cls:'place',prio:1,getPos:v=>v.set(-140,40,330)});
+const groundSunDir=new THREE.Vector3(0,1,0), groundMoonDir=new THREE.Vector3(0,1,0);
+let moonAlt=-90;
+const lblGSun=groundLabels.add('☀️ 太陽',{mode:'pin',prio:10,pad:26,getPos:v=>v.copy(groundSunDir).multiplyScalar(SUN_D)});
+const lblGMoon=groundLabels.add('🌙 月球',{cls:'tiny',mode:'pin',prio:6,pad:10,getPos:v=>v.copy(groundMoonDir).multiplyScalar(MOON_D)});
+const hourLbls=HOUR_MARKS.map(h=>({h,L:groundLabels.add(fmtTime(h),{cls:'hour',mode:'pin',prio:3,getPos:v=>v.copy(hourInfo[h].pos)})}));
+
+// --- ground camera (look direction + zoom) ---
+let gYaw=90,gPitch=10,gTargetYaw=90,gTargetPitch=10,gZoom=1;
+const _gv=new THREE.Vector3();
+function updateGroundCamera(dt){
+  const k=Math.min(1,dt*4);
+  gYaw+=wrap180(gTargetYaw-gYaw)*k; gPitch+=(gTargetPitch-gPitch)*k;
+  azAltToVec(gYaw,gPitch,1,_gv); groundCamera.lookAt(EYE.x+_gv.x,EYE.y+_gv.y,EYE.z+_gv.z); groundCamera.updateMatrixWorld();
+}
+function applyGroundFov(){ const W=groundWrap.clientWidth,H=groundWrap.clientHeight; if(!W||!H) return;
+  groundCamera.fov=fovFor(W/H,68)*gZoom; groundCamera.updateProjectionMatrix(); }
+function setZoom(z){ gZoom=clamp(z,0.25,1.2); applyGroundFov(); }
+
+// --- sky colour palette ---
+const C=h=>new THREE.Color(h);
+const SKY={ zNight:C('#02050f'), zDay:C('#2a6fc9'), zDawn:C('#3f5f9e'), zDusk:C('#4b3a7a'),
+  hNight:C('#0a1228'), hDay:C('#b9d8f0'), hDawn:C('#f2a25c'), hDusk:C('#ef7d5a'),
+  bDawn:C('#ffae55'), bDusk:C('#ff6a3a'), sunLow:C('#ff7a30'), sunHigh:C('#fff4d6'),
+  cDay:C('#f4f5f7'), cTw:C('#ffb08a'), cNight:C('#161b28'), deep:C('#0a2a33') };
+const _zen=new THREE.Color(), _hor=new THREE.Color(), _sc=new THREE.Color(), _cl=new THREE.Color(), _cd=new THREE.Color();
+
+/* =====================================================================
+   6. UI – controls, clock, hints, layout
+   ===================================================================== */
+const ui={ play:$('#btnPlay'),slider:$('#timeSlider'),hk:$('#hkTime'),cityT:$('#cityTime'),cityN:$('#cityName'),cityDay:$('#cityDay'),
+  turned:$('#turned'),hand:$('#dialHand'),hint:$('#hint'),spin:$('#btnSpin'),banner:$('#expBanner'),moon:$('#btnMoon'),
+  follow:$('#btnFollow'),labels:$('#btnLabels'),citySel:$('#citySel'),seasonSel:$('#seasonSel'),views:$('#views'),
+  dialSun:$('#dialSun'),dialFacing:$('#dialFacing') };
+(function(){ let s=''; for(let i=0;i<24;i++){ const big=i%6===0;
+  s+=`<line x1="0" y1="-46" x2="0" y2="${big?-38:-42}" stroke="#fff" stroke-width="${big?3:1.5}" transform="rotate(${i*15})"/>`; }
+  $('#dialTicks').innerHTML=s; })();
+
+function setPlaying(p){ state.playing=p; ui.play.textContent=p?'⏸ 暫停':'▶ 播放'; }
+function setSpeed(s){ state.speed=s; $$('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.speed===s))); }
+function setFollow(f){ state.followSun=f; ui.follow.setAttribute('aria-pressed',String(f)); }
+function setLabels(on){ state.showLabels=on; ui.labels.setAttribute('aria-pressed',String(on)); }
+function setLayout(l){ state.layout=l; ui.views.className='layout-'+l;
+  $$('[data-layout]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.layout===l)));
+  $$('[data-fs]').forEach(b=>{ const on=b.dataset.fs===l; b.textContent=on?'🗗':'⛶'; b.setAttribute('aria-label',on?'返回分屏':'全螢幕顯示'); });
+  requestAnimationFrame(resizeAll); }
+function setSpinDir(d){
+  state.spinDir=d; const exp=d<0;
+  ui.spin.setAttribute('aria-pressed',String(exp)); ui.banner.hidden=!exp; document.body.classList.toggle('experiment',exp);
+  spinArrow.scale.x=d;   // mirror arrow: anticlockwise ↔ clockwise
+  SL.html(lblSpin,exp?'↻ 由東向西<small>🧪 實驗：順時針</small>':'↺ 由西向東<small>自轉方向：逆時針</small>');
+  updateDawnDusk(); rebuildSunPath(); requestAnimationFrame(resizeAll); }
+function setCity(k){ state.city=k; ui.citySel.value=k; const c=CITIES[k]; placeOnSurface(cityPin,c.lat,c.lon); ui.cityN.textContent=c.zh; }
+function setSeason(s){ state.season=s; ui.seasonSel.value=s; applySeasonGeometry(); }
+function setMoon(on){ state.showMoon=on; ui.moon.setAttribute('aria-pressed',String(on));
+  moonMesh.visible=on; moonOrbitLine.visible=on; lblMoon.show=on; gMoon.visible=on; }
+function resetAll(){
+  Object.assign(state,DEFAULTS);
+  orbit.theta=ORBIT_DEF.theta; orbit.phi=ORBIT_DEF.phi; orbit.radius=ORBIT_DEF.radius; gZoom=1;
+  setPlaying(false); setSpeed(1); setFollow(true); setLabels(true); setCity('london'); setMoon(true);
+  setSeason('equinox'); setSpinDir(1); setLayout('split');
+  const s=currentSun(); gYaw=gTargetYaw=s.az; gPitch=gTargetPitch=10; applyGroundFov();
+}
+
+ui.play.addEventListener('click',()=>setPlaying(!state.playing));
+$$('[data-speed]').forEach(b=>b.addEventListener('click',()=>setSpeed(+b.dataset.speed)));
+ui.spin.addEventListener('click',()=>setSpinDir(-state.spinDir));
+$('#btnRealEarth').addEventListener('click',()=>setSpinDir(1));
+ui.citySel.addEventListener('change',e=>setCity(e.target.value));
+ui.seasonSel.addEventListener('change',e=>setSeason(e.target.value));
+ui.moon.addEventListener('click',()=>setMoon(!state.showMoon));
+ui.labels.addEventListener('click',()=>setLabels(!state.showLabels));
+$$('[data-layout]').forEach(b=>b.addEventListener('click',()=>setLayout(b.dataset.layout)));
+$$('[data-fs]').forEach(b=>b.addEventListener('click',()=>setLayout(state.layout===b.dataset.fs?'split':b.dataset.fs)));
+$('#btnReset').addEventListener('click',resetAll);
+ui.follow.addEventListener('click',()=>setFollow(!state.followSun));
+$$('[data-look]').forEach(b=>b.addEventListener('click',()=>{ setFollow(false); gTargetYaw=+b.dataset.look; gTargetPitch=12; }));
+let sliderActive=false;
+ui.slider.addEventListener('pointerdown',()=>{ sliderActive=true; setPlaying(false); });
+window.addEventListener('pointerup',()=>{ sliderActive=false; });
+ui.slider.addEventListener('input',()=>{ setPlaying(false); setTime(+ui.slider.value); });
+ui.slider.addEventListener('change',()=>{ sliderActive=false; });
+$('#btnLegend').addEventListener('click',()=>{ const l=$('#legend'); l.hidden=!l.hidden; $('#btnLegend').setAttribute('aria-expanded',String(!l.hidden)); });
+window.addEventListener('keydown',e=>{ if(e.code==='Space'&&!/INPUT|SELECT|BUTTON|TEXTAREA/.test(document.activeElement.tagName)){ e.preventDefault(); setPlaying(!state.playing);} });
+
+// --- Space View pointer: drag space = orbit camera; drag Earth = turn Earth (changes time); pinch/wheel = zoom ---
+const raycaster=new THREE.Raycaster(), ndc=new THREE.Vector2(), earthSphere=new THREE.Sphere(new THREE.Vector3(),R_EARTH), hitP=new THREE.Vector3();
+function earthHit(cx,cy){ const r=spaceCanvas.getBoundingClientRect(); ndc.set((cx-r.left)/r.width*2-1,-((cy-r.top)/r.height*2-1));
+  raycaster.setFromCamera(ndc,spaceCamera); return raycaster.ray.intersectSphere(earthSphere,hitP); }
+function tiltAngleOf(p){ const l=tiltGroup.worldToLocal(p.clone()); return Math.atan2(-l.z,l.x); }
+const sPtrs=new Map(); let sMode=null,lastAng=0,pinchD=0;
+const pDist=m=>{ const a=[...m.values()]; return Math.hypot(a[0].x-a[1].x,a[0].y-a[1].y)||1; };
+spaceCanvas.addEventListener('pointerdown',e=>{
+  spaceCanvas.setPointerCapture(e.pointerId); sPtrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(sPtrs.size===1){ const h=earthHit(e.clientX,e.clientY);
+    if(h){ sMode='earth'; lastAng=tiltAngleOf(h); setPlaying(false); spaceCanvas.style.cursor='grabbing'; } else sMode='orbit'; }
+  else if(sPtrs.size===2){ sMode='pinch'; pinchD=pDist(sPtrs); } });
+spaceCanvas.addEventListener('pointermove',e=>{
+  if(!sPtrs.has(e.pointerId)){ spaceCanvas.style.cursor=earthHit(e.clientX,e.clientY)?'grab':'move'; return; }
+  const p=sPtrs.get(e.pointerId), dx=e.clientX-p.x, dy=e.clientY-p.y; p.x=e.clientX; p.y=e.clientY;
+  if(sMode==='orbit'){ orbit.theta-=dx*0.006; orbit.phi=clamp(orbit.phi-dy*0.006,0.12,Math.PI-0.12); }
+  else if(sMode==='earth'){ const h=earthHit(e.clientX,e.clientY);
+    if(h){ const a=tiltAngleOf(h), d=wrapPi(a-lastAng); lastAng=a; addHours(state.spinDir*(d/DEG)/15); } }
+  else if(sMode==='pinch'&&sPtrs.size===2){ const nd=pDist(sPtrs); orbit.radius=clamp(orbit.radius*pinchD/nd,7,45); pinchD=nd; } });
+function sEnd(e){ sPtrs.delete(e.pointerId); if(sPtrs.size===0){ sMode=null; spaceCanvas.style.cursor=''; } else if(sMode==='pinch') sMode='orbit'; }
+spaceCanvas.addEventListener('pointerup',sEnd); spaceCanvas.addEventListener('pointercancel',sEnd);
+spaceCanvas.addEventListener('wheel',e=>{ e.preventDefault(); orbit.radius=clamp(orbit.radius*(1+Math.sign(e.deltaY)*0.08),7,45); },{passive:false});
+
+// --- Ground View pointer: drag to look around (turns off Follow Sun); pinch/wheel = zoom like binoculars ---
+const gPtrs=new Map(); let gPinch=0;
+groundCanvas.addEventListener('pointerdown',e=>{ groundCanvas.setPointerCapture(e.pointerId); gPtrs.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(gPtrs.size===2) gPinch=pDist(gPtrs); });
+groundCanvas.addEventListener('pointermove',e=>{ if(!gPtrs.has(e.pointerId)) return;
+  const p=gPtrs.get(e.pointerId), dx=e.clientX-p.x, dy=e.clientY-p.y; p.x=e.clientX; p.y=e.clientY;
+  if(gPtrs.size===1){ if(dx||dy) setFollow(false);
+    gYaw=gTargetYaw=gYaw-dx*0.22*gZoom; gPitch=gTargetPitch=clamp(gPitch+dy*0.22*gZoom,-5,85); }
+  else if(gPtrs.size===2){ const nd=pDist(gPtrs); setZoom(gZoom*gPinch/nd); gPinch=nd; } });
+['pointerup','pointercancel'].forEach(t=>groundCanvas.addEventListener(t,e=>{ gPtrs.delete(e.pointerId); }));
+groundCanvas.addEventListener('wheel',e=>{ e.preventDefault(); setZoom(gZoom*(1+Math.sign(e.deltaY)*0.08)); },{passive:false});
+
+// --- live hints ---
+const DIRS=['北','東北','東','東南','南','西南','西','西北'];
+function hintFor(s,t){
+  const zh=DIRS[Math.round(s.az/45)%8]; let h;
+  if(s.alt<-6) h='🌙 晚上：太陽在地平線以下。香港正背向太陽。';
+  else if(s.alt<0.5) h=t<12?`🌅 黎明：太陽快要從${zh}方升起。`:`🌇 黃昏：太陽剛剛在${zh}方落下。`;
+  else if(s.alt<8) h=t<12?`🌅 日出：太陽從${zh}方升起。`:`🌇 日落：太陽在${zh}方落下。`;
+  else if(t<11) h=`☀️ 上午：太陽在${zh}方，位置越來越高。`;
+  else if(t<=13) h=`☀️ 中午：太陽在${zh}方，位置最高。`;
+  else h=`☀️ 下午：太陽在${zh}方，位置越來越低。`;
+  return state.spinDir<0?'🧪 '+h:h;
+}
+const cache={};
+function setHTML(el,key,val){ if(cache[key]!==val){ cache[key]=val; el.innerHTML=val; } }
+
+/* =====================================================================
+   7. GUIDED MODE – 4 step cards
+   ===================================================================== */
+const STEPS=[
+ { t:'日與夜',
+   b:'太陽是<b>發光體</b>，自己會發光。地球是<b>不發光體</b>，自己不會發光。陽光只能照亮地球面向太陽的一半。',
+   q:'🤔 香港現在是白天還是晚上？你怎樣知道？',
+   hl:['#spaceView'], enter(){ setPlaying(false); setTime(10); } },
+ { t:'地球怎樣自轉？',
+   b:'按「▶ 播放」，留意香港（橙色小人）怎樣移動。北極上方的橙色箭頭顯示地球的自轉方向。',
+   q:'🤔 地球是由西向東轉，還是由東向西轉？轉一整圈要多少小時？',
+   hl:['#btnPlay','#clockBox'], enter(){ setSpinDir(1); setSpeed(1); setPlaying(true); } },
+ { t:'太陽從東方升起',
+   b:'看看香港怎樣由黑暗的一面轉進陽光裏。同一時間，留意地面視角。',
+   q:'🤔 太陽最先在哪個方向出現？為甚麼？',
+   hl:['#groundView'], enter(){ setSpinDir(1); setTime(4.5); setSpeed(0.25); setFollow(true); setPlaying(true); if(state.layout!=='split') setLayout('split'); } },
+ { t:'自己試試',
+   b:'拖動地球或時間滑桿。然後按「🧪 如果地球反方向自轉，會怎樣？」',
+   q:'🤔 現在太陽從哪個方向升起？這是真實的地球嗎？',
+   hl:['#sliderWrap','#btnSpin'], enter(){ setPlaying(false); } }
+];
+let gIdx=-1;
+function clearHL(){ $$('.highlight').forEach(e=>e.classList.remove('highlight')); }
+function showStep(i){ gIdx=i; const s=STEPS[i]; clearHL();
+  $('#guide').hidden=false; $('#gStep').textContent=`第 ${i+1} 步（共 ${STEPS.length} 步）`; $('#gTitle').textContent=s.t;
+  $('#gBody').innerHTML=s.b; $('#gQ').innerHTML=s.q; $('#gPrev').disabled=i===0;
+  $('#gNext').textContent=i===STEPS.length-1?'完成 ✓':'下一步 ▶';
+  s.hl.forEach(sel=>{ const el=$(sel); if(el) el.classList.add('highlight'); }); s.enter(); }
+function closeGuide(){ $('#guide').hidden=true; clearHL(); gIdx=-1; }
+$('#btnGuide').addEventListener('click',()=>showStep(0));
+$('#gPrev').addEventListener('click',()=>{ if(gIdx>0) showStep(gIdx-1); });
+$('#gNext').addEventListener('click',()=>{ if(gIdx<STEPS.length-1) showStep(gIdx+1); else closeGuide(); });
+$('#gClose').addEventListener('click',closeGuide);
+
+/* ---------- resize ---------- */
+function resizeAll(){
+  const sw=spaceWrap.clientWidth, sh=spaceWrap.clientHeight;
+  if(sw&&sh){ spaceRenderer.setSize(sw,sh,false); spaceCamera.aspect=sw/sh; spaceCamera.fov=fovFor(sw/sh,45); spaceCamera.updateProjectionMatrix(); spaceLabels.resize(sw,sh); }
+  const gw=groundWrap.clientWidth, gh=groundWrap.clientHeight;
+  if(gw&&gh){ groundRenderer.setSize(gw,gh,false); groundCamera.aspect=gw/gh; applyGroundFov(); groundLabels.resize(gw,gh); }
+  document.documentElement.style.setProperty('--ctrlH',($('#controls').offsetHeight+10)+'px');
+}
+if(window.ResizeObserver){ const ro=new ResizeObserver(resizeAll); ro.observe(spaceWrap); ro.observe(groundWrap); ro.observe($('#controls')); }
+window.addEventListener('resize',resizeAll);
+
+/* =====================================================================
+   8. ANIMATION LOOP – everything is derived from `state` every frame
+   ===================================================================== */
+function currentSun(){ return sunAzAlt(state.timeOfDay,HK.lat,HK.lon,TILT,state.spinDir,SEASONS[state.season].decSign); }
+const hkW=new THREE.Vector3(), eastW=new THREE.Vector3(), northW=new THREE.Vector3(), moonDirW=new THREE.Vector3(), headW=new THREE.Vector3();
+
+function updateSpace(sHK,sCity){
+  spinGroup.rotation.y=earthSpinRad();
+  const elong=(MOON_START_DEG+(state.day+state.timeOfDay/24)/LUNAR_MONTH*360)*DEG;   // Moon angle from the Sun direction
+  moonMesh.position.set(MOON_DIST*Math.cos(elong),0,-MOON_DIST*Math.sin(elong)); moonMesh.rotation.y=elong;
+  applyOrbit(); spaceScene.updateMatrixWorld();
+  hkGroup.getWorldPosition(hkW); hkUp.copy(hkW).normalize();
+  cityPin.getWorldPosition(cityUp); cityUp.normalize();
+  hkHeadM.getWorldPosition(headW);
+  losMesh.visible=sHK.alt>0; losMesh.position.copy(headW).addScaledVector(SUN_DIR,1.35);
+  const c=CITIES[state.city];
+  SL.html(lblHK,`香港 ${sHK.alt>0?'☀️':'🌙'}<small>${fmtTime(state.timeOfDay)}・${sHK.alt>0?'白天':'晚上'}</small>`);
+  SL.html(lblCity,`${c.zh} ${sCity.alt>0?'☀️':'🌙'}<small>${fmtTime(cityClock(c))}・${sCity.alt>0?'白天':'晚上'}</small>`);
+  spaceLabels.update(occludedByEarth,state.showLabels);
+}
+
+function updateGround(s,dt,tSec){
+  azAltToVec(s.az,s.alt,1,groundSunDir);
+  const alt=s.alt, morning=state.timeOfDay<12;
+  const dayF=smooth(-4,12,alt), tw=clamp(1-Math.abs(alt-1)/9,0,1), starF=smooth(-4,-14,alt), nightL=smooth(3,-6,alt);
+  _zen.copy(SKY.zNight).lerp(SKY.zDay,dayF).lerp(morning?SKY.zDawn:SKY.zDusk,tw*0.35);
+  _hor.copy(SKY.hNight).lerp(SKY.hDay,dayF).lerp(morning?SKY.hDawn:SKY.hDusk,tw*0.7);
+  _sc.copy(SKY.sunLow).lerp(SKY.sunHigh,smooth(0,25,alt));
+  _cl.copy(SKY.cNight).lerp(SKY.cDay,dayF).lerp(SKY.cTw,tw*0.75);
+  _cd.copy(_cl).multiplyScalar(0.62).lerp(_zen,0.15);
+  const su=skyMat.uniforms;
+  su.uZenith.value.copy(_zen); su.uHorizon.value.copy(_hor); su.uBand.value.copy(morning?SKY.bDawn:SKY.bDusk); su.uBandI.value=tw*0.9;
+  su.uGlowCol.value.copy(_sc); su.uSunDir.value.copy(groundSunDir); su.uSunI.value=smooth(-5,1,alt); su.uTime.value=tSec;
+  su.uCloudLit.value.copy(_cl); su.uCloudDark.value.copy(_cd);
+  groundScene.fog.color.copy(_hor);
+  const wu=waterMat.uniforms;
+  wu.uTime.value=tSec; wu.uSunDir.value.copy(groundSunDir); wu.uSunCol.value.copy(_sc); wu.uSunI.value=smooth(-1,3,alt);
+  wu.uZenith.value.copy(_zen); wu.uHorizon.value.copy(_hor); wu.uDeep.value.copy(SKY.deep).multiplyScalar(0.25+0.75*dayF);
+  wu.uFogCol.value.copy(_hor); wu.uNight.value=nightL;
+  gSunGlow.position.copy(groundSunDir).multiplyScalar(SUN_D); gSunDisc.position.copy(groundSunDir).multiplyScalar(SUN_D-5);
+  gSunDisc.material.color.copy(_sc); gSunGlow.material.color.copy(_sc);
+  starMat.opacity=starF;
+  hemi.color.copy(_zen).lerp(SKY.hDay,0.3); hemi.intensity=0.14+0.6*dayF;
+  gSunLight.intensity=smooth(-1,8,alt); gSunLight.color.copy(_sc); gSunLight.position.copy(groundSunDir).multiplyScalar(100);
+  U_NIGHT.value=nightL; U_SKYREF.value.copy(_hor).multiplyScalar(0.4+0.6*dayF);
+  lampHeadMat.color.setRGB(0.45+0.55*nightL,0.45+0.4*nightL,0.45+0.15*nightL); lampGlowMat.opacity=nightL*0.9;
+  boatLightMat.color.setRGB(0.2+0.8*nightL,0.2+0.6*nightL,0.2+0.3*nightL);
+  updateBoats(tSec);
+  // Moon direction taken from the 3D Space scene → converted to Hong Kong's East-North-Up frame
+  if(state.showMoon){
+    eastW.crossVectors(axisWorld,hkUp).normalize(); northW.crossVectors(hkUp,eastW);
+    moonDirW.copy(moonMesh.position).normalize();
+    const E=moonDirW.dot(eastW),N=moonDirW.dot(northW),U=moonDirW.dot(hkUp);
+    groundMoonDir.set(E,U,-N).normalize(); moonAlt=Math.asin(clamp(U,-1,1))/DEG;
+    gMoon.position.copy(groundMoonDir).multiplyScalar(MOON_D);
+    gMoonMat.uniforms.sunDir.value.copy(groundSunDir);
+  }
+  lblGMoon.show=state.showMoon&&moonAlt>-1;
+  lblGSun.show=alt>-1;
+  pathGeo.setDrawRange(0,Math.floor(state.timeOfDay*6)+1);
+  hourLbls.forEach(o=>{ o.L.show=state.timeOfDay>=o.h&&hourInfo[o.h].alt>-1; });
+  if(state.followSun){ gTargetYaw=s.az; gTargetPitch=alt>0?clamp(alt*0.7,8,50):10; }
+  updateGroundCamera(dt);
+  groundLabels.update(null,state.showLabels);
+  // sky-map dial
+  const rr=alt>=0?(90-alt)/90*50:56;
+  ui.dialSun.setAttribute('cx',(rr*Math.sin(s.az*DEG)).toFixed(1)); ui.dialSun.setAttribute('cy',(-rr*Math.cos(s.az*DEG)).toFixed(1));
+  ui.dialSun.setAttribute('opacity',alt>=0?'1':'0.35');
+  ui.dialFacing.setAttribute('transform',`rotate(${gYaw.toFixed(1)})`);
+  setHTML(ui.hint,'hint',hintFor(s,state.timeOfDay));
+}
+
+function updateUI(){
+  const t=state.timeOfDay, c=CITIES[state.city], ct=cityClock(c);
+  setHTML(ui.hk,'hk',fmtTime(t));
+  setHTML(ui.cityT,'ct',fmtTime(ct));
+  setHTML(ui.cityDay,'cd',ct<0?'（前一天）':(ct>=24?'（翌日）':''));
+  setHTML(ui.turned,'tu',Math.round(t*15)+'°'+(state.spinDir<0?' ↻':' ↺'));
+  ui.hand.setAttribute('transform',`rotate(${(t/24*360+180).toFixed(1)})`);
+  if(!sliderActive&&Math.abs(+ui.slider.value-t)>0.01) ui.slider.value=t;
+}
+
+let last=performance.now(), frameN=0;
+function frame(now){
+  const dt=Math.min(0.1,(now-last)/1000); last=now; const tSec=now/1000;
+  if(state.playing) addHours(dt*state.speed);
+  const ds=SEASONS[state.season].decSign, c=CITIES[state.city];
+  const sHK=currentSun(), sCity=sunAzAlt(state.timeOfDay,c.lat,c.lon,TILT,state.spinDir,ds);
+  const showSpace=state.layout!=='ground', showGround=state.layout!=='space';
+  sunMat.uniforms.uTime.value=tSec; clouds.rotation.y+=dt*0.004;
+  if(++frameN%20===0){ spaceLabels.updateReserved(); groundLabels.updateReserved(); }
+  updateSpace(sHK,sCity);
+  if(showSpace) spaceRenderer.render(spaceScene,spaceCamera);
+  if(showGround){ updateGround(sHK,dt,tSec); groundRenderer.render(groundScene,groundCamera); }
+  else setHTML(ui.hint,'hint',hintFor(sHK,state.timeOfDay));
+  updateUI();
+  requestAnimationFrame(frame);
+}
+
+/* ---------- init ---------- */
+resetAll(); resizeAll(); $('#loader').hidden=true; requestAnimationFrame(frame);
+} // end run()
+})();
+</script>
+</body>
+</html>
