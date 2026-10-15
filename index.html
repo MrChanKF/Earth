@@ -14,6 +14,7 @@
   --ctrlH:170px;
 }
 *{box-sizing:border-box}
+[hidden]{display:none!important}
 html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
   font-family:"Noto Sans TC","PingFang HK","PingFang TC","Microsoft JhengHei",system-ui,-apple-system,"Segoe UI",sans-serif;}
 body{display:flex;flex-direction:column;height:100vh;height:100dvh;overflow:hidden;
@@ -120,6 +121,23 @@ select{min-height:44px;font-size:16px;font-family:inherit;font-weight:700;border
 @keyframes pulse{50%{outline-color:#fff}}
 @media (prefers-reduced-motion:reduce){.highlight{animation:none}}
 
+/* ---- year (revolution) panel ---- */
+.year-panel{position:absolute;top:52px;left:8px;z-index:3;width:min(280px,62%);background:rgba(8,12,22,.88);border:2px solid #9ecbff;
+  border-radius:10px;padding:8px 10px;font-size:14px;line-height:1.45}
+.year-panel .yp-title{font-weight:800;font-size:15px}
+.year-panel .yp-date{font-size:26px;font-weight:800;color:var(--sun);font-variant-numeric:tabular-nums}
+.year-panel .yp-bar{height:12px;border-radius:6px;background:#26314b;border:1px solid #9ecbff;overflow:hidden;margin:4px 0}
+.year-panel .yp-bar span{display:block;height:100%;width:0;background:#9ecbff}
+.year-panel b{font-variant-numeric:tabular-nums}
+#dateSlider::-webkit-slider-runnable-track{background:#4f6a99}
+#dateSlider::-moz-range-track{background:#4f6a99}
+/* ---- cities panel ---- */
+#cities{position:fixed;top:60px;right:12px;z-index:30;width:min(380px,calc(100vw - 24px));max-height:calc(100vh - 80px);overflow:auto;
+  background:var(--panel);border:2px solid var(--line);border-radius:12px;padding:10px 12px;font-size:15px;box-shadow:0 8px 30px rgba(0,0,0,.5)}
+#cities h2{margin:0 0 4px;font-size:17px}
+#cities p{margin:0 0 8px;color:var(--muted);font-size:14px}
+#cities .chips{display:flex;flex-wrap:wrap;gap:6px}
+#cities .btn:disabled{opacity:1;cursor:default;border-style:dashed}
 #fallback,#loader{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;background:#0e1320;padding:24px}
 #fallback[hidden],#loader[hidden]{display:none}
 #loader{z-index:90;background:rgba(14,19,32,.94);font-size:22px;font-weight:800}
@@ -132,7 +150,8 @@ select{min-height:44px;font-size:16px;font-family:inherit;font-weight:700;border
   <h1>☀️🌍🌙 三球儀 <small>太陽・地球・月球</small></h1>
   <div class="top-actions">
     <button class="btn" id="btnGuide">📘 導學模式</button>
-    <button class="btn" id="btnLabels" aria-pressed="true">🏷️ 標籤</button>
+    <button class="btn" id="btnLabels" aria-pressed="false">🏷️ 輔助標籤</button>
+    <button class="btn" id="btnCities" aria-expanded="false" aria-controls="cities">🌐 城市</button>
     <button class="btn" id="btnLegend" aria-expanded="false" aria-controls="legend">🔑 圖例</button>
   </div>
 </header>
@@ -149,6 +168,14 @@ select{min-height:44px;font-size:16px;font-family:inherit;font-weight:700;border
     <div class="view-title reserve">🚀 太空視角</div>
     <button class="btn fs-btn reserve" data-fs="space" aria-label="全螢幕顯示">⛶</button>
     <div class="corner-note left reserve">⚠️ 大小和距離不按比例</div>
+    <div id="yearPanel" class="year-panel reserve" hidden>
+      <div class="yp-title">🔄 公轉：地球繞太陽轉一圈 = 一年</div>
+      <div class="yp-date" id="ypDate">3月20日</div>
+      <div class="yp-bar"><span id="ypBar"></span></div>
+      <div>已公轉 <b id="ypDays">0</b> 日／365¼ 日</div>
+      <div>同時自轉了約 <b id="ypSpins">0</b> 圈</div>
+      <input type="range" id="dateSlider" min="0" max="365" step="1" value="0" aria-label="日期">
+    </div>
     <div class="corner-note right reserve">✋ 拖動太空：轉換角度 · 拖動地球：令地球自轉<br>雙指／滾輪：放大縮小</div>
   </section>
 
@@ -200,6 +227,7 @@ select{min-height:44px;font-size:16px;font-family:inherit;font-weight:700;border
         <div class="main">香港 <b id="hkTime">06:00</b></div>
         <div class="sub"><span id="cityName">倫敦</span> <b id="cityTime">22:00</b> <span id="cityDay"></span></div>
         <div class="sub">地球已自轉 <b id="turned">90°</b>／360° = 24 小時</div>
+        <div class="sub">日期 <b id="dateTxt">3月20日</b></div>
       </div>
     </div>
     <label class="slider-wrap" id="sliderWrap">
@@ -208,20 +236,28 @@ select{min-height:44px;font-size:16px;font-family:inherit;font-weight:700;border
     </label>
   </div>
   <div class="row">
-    <div class="group" role="group" aria-label="速度">
+    <div class="group" role="group" aria-label="速度" id="speedDay">
       <span class="glabel">速度</span>
       <button class="btn sm" data-speed="1">1 秒 = 1 小時</button>
       <button class="btn sm" data-speed="0.5">1 秒 = 30 分鐘</button>
       <button class="btn sm" data-speed="0.25">慢速（1 秒 = 15 分鐘）</button>
     </div>
+    <div class="group" role="group" aria-label="公轉速度" id="speedYear" hidden>
+      <span class="glabel">速度</span>
+      <button class="btn sm" data-speed="24">1 秒 = 1 日</button>
+      <button class="btn sm" data-speed="168">1 秒 = 1 星期</button>
+      <button class="btn sm" data-speed="720">1 秒 = 1 個月</button>
+    </div>
+    <button class="btn" id="btnYear" aria-pressed="false">🔄 公轉（一年）</button>
     <button class="btn exp" id="btnSpin" aria-pressed="false">🧪 如果地球反方向自轉，會怎樣？</button>
-    <label class="group"><span class="glabel">城市</span>
+    <label class="group"><span class="glabel">比較城市</span>
       <select id="citySel"><option value="london">倫敦</option><option value="newyork">紐約</option></select></label>
     <label class="group"><span class="glabel">日期</span>
       <select id="seasonSel">
         <option value="equinox">春分（3 月）</option>
         <option value="summer">夏至（6 月）</option>
         <option value="winter">冬至（12 月）</option>
+        <option value="custom" disabled hidden>其他日期</option>
       </select></label>
     <button class="btn sm" id="btnMoon" aria-pressed="true">🌙 月球</button>
     <div class="group" role="group" aria-label="畫面">
@@ -253,7 +289,15 @@ select{min-height:44px;font-size:16px;font-family:inherit;font-weight:700;border
       <span>黃線：香港觀察者望向太陽的視線</span></li>
     <li><svg width="40" height="16"><g fill="#fff3a0"><circle cx="5" cy="12" r="2.5"/><circle cx="13" cy="7" r="2.5"/><circle cx="21" cy="5" r="2.5"/><circle cx="29" cy="7" r="2.5"/><circle cx="37" cy="12" r="2.5"/></g></svg>
       <span>點線：今天太陽在天空經過的路徑（地面視角）</span></li>
+    <li><svg width="40" height="24"><ellipse cx="20" cy="12" rx="17" ry="8" fill="none" stroke="#9ecbff" stroke-width="2.5" stroke-dasharray="5 3"/><circle cx="20" cy="12" r="3" fill="#F0E442"/></svg>
+      <span>藍色虛線圈：地球公轉軌道（轉一圈 = 一年）</span></li>
   </ul>
+</aside>
+
+<aside id="cities" hidden aria-label="地球上的城市">
+  <h2>🌐 在地球上顯示的城市</h2>
+  <p>香港一定會顯示。地球上最多同時顯示兩個城市：「比較城市」🕒（時鐘旁顯示時間）及另外一個城市。選另一個城市會取代原來的那個；再按一下可以隱藏。</p>
+  <div class="chips" id="cityChips"></div>
 </aside>
 
 <aside id="guide" hidden aria-live="polite">
@@ -294,17 +338,37 @@ function run(){
    ===================================================================== */
 const DEG=Math.PI/180, TILT=23.5, R_EARTH=2, MOON_DIST=5.6, LUNAR_MONTH=29.53, MOON_START_DEG=100;
 const Y_AXIS=new THREE.Vector3(0,1,0);
-const SUN_DIR=new THREE.Vector3(1,0,0);           // world direction Earth → Sun (fixed; Sun on the right)
-const SUN_POS=SUN_DIR.clone().multiplyScalar(11);  // visual Sun position (NOT to scale)
+const ORBIT_R=11;                                  // Earth–Sun distance in the model (NOT to scale)
+const SUN_DIR=new THREE.Vector3(1,0,0);           // world direction Earth → Sun; changes slowly as the Earth orbits the Sun
 const HK={zh:'香港',lat:22.3,lon:114.2,tz:8};
-const CITIES={ london:{zh:'倫敦',lat:51.5,lon:-0.1,tz:0}, newyork:{zh:'紐約',lat:40.7,lon:-74.0,tz:-5} };
-const SEASONS={ equinox:{decSign:0}, summer:{decSign:1}, winter:{decSign:-1} };
-const DEFAULTS={ timeOfDay:6, day:0, playing:false, speed:1, spinDir:1, season:'equinox', city:'london',
-  showMoon:true, showLabels:true, layout:'split', followSun:true };
+const CITIES={
+  london:  {zh:'倫敦',country:'英國',lat:51.5,lon:-0.1,tz:0},
+  newyork: {zh:'紐約',country:'美國',lat:40.7,lon:-74.0,tz:-5},
+  tokyo:   {zh:'東京',country:'日本',lat:35.7,lon:139.7,tz:9},
+  beijing: {zh:'北京',country:'中國',lat:39.9,lon:116.4,tz:8},
+  singapore:{zh:'新加坡',country:'新加坡',lat:1.35,lon:103.8,tz:8},
+  sydney:  {zh:'悉尼',country:'澳洲',lat:-33.9,lon:151.2,tz:10},
+  delhi:   {zh:'新德里',country:'印度',lat:28.6,lon:77.2,tz:5.5},
+  moscow:  {zh:'莫斯科',country:'俄羅斯',lat:55.8,lon:37.6,tz:3},
+  paris:   {zh:'巴黎',country:'法國',lat:48.9,lon:2.35,tz:1},
+  cairo:   {zh:'開羅',country:'埃及',lat:30.0,lon:31.2,tz:2},
+  capetown:{zh:'開普敦',country:'南非',lat:-33.9,lon:18.4,tz:2},
+  losangeles:{zh:'洛杉磯',country:'美國',lat:34.05,lon:-118.2,tz:-8},
+  rio:     {zh:'里約熱內盧',country:'巴西',lat:-22.9,lon:-43.2,tz:-3}
+};
+// Season presets = calendar dates (days after 20 March)
+const SEASONS={ equinox:{day:0}, summer:{day:93}, winter:{day:276} };
+const DEFAULTS={ timeOfDay:6, day:0, dateIdx:0, playing:false, speed:1, spinDir:1, season:'equinox', city:'london',
+  shownCities:['newyork'], yearMode:false,   // shownCities = the ONE extra city (besides the clock's comparison city)
+  showMoon:true, showScaffold:false, layout:'split', followSun:true };
 const state=Object.assign({},DEFAULTS);   // timeOfDay = Hong Kong local (solar) time in hours [0,24)
 
+// state.day counts days for the Moon; state.dateIdx (calendar date) only moves while 公轉 (year) mode is on,
+// so the normal day/night lesson keeps the chosen date, exactly as before.
 function addHours(h){ let t=state.timeOfDay+h;
-  while(t>=24){t-=24;state.day++;} while(t<0){t+=24;state.day--;} state.timeOfDay=t; }
+  while(t>=24){t-=24;state.day++; if(state.yearMode) state.dateIdx++;}
+  while(t<0){t+=24;state.day--; if(state.yearMode) state.dateIdx--;}
+  state.timeOfDay=t; }
 function setTime(h){ state.timeOfDay=Math.min(Math.max(h,0),23.999); }
 
 /* =====================================================================
@@ -325,7 +389,8 @@ function sunAzAlt(time, lat, lon, tilt, spinDir, decSign){
   //    Places east/west of HK are offset by their longitude difference.
   const H=(spinDir*(time-12)*15 + (lon-HK.lon))*DEG;
   // 2) Declination δ: how far north/south of the equator the Sun shines (season, from the tilt).
-  const dec=tilt*(decSign||0)*DEG, phi=lat*DEG;
+  //    decSign = sin(Sun's position along its yearly path): 0 at the equinoxes, ±1 at the solstices.
+  const dec=Math.asin(Math.sin(tilt*DEG)*(decSign||0)), phi=lat*DEG;
   // 3) Sun direction in the observer's local East-North-Up frame (standard spherical astronomy).
   const east =-Math.cos(dec)*Math.sin(H);
   const north= Math.cos(phi)*Math.sin(dec)-Math.sin(phi)*Math.cos(dec)*Math.cos(H);
@@ -340,12 +405,21 @@ function azAltToVec(az,alt,r,out){ const a=az*DEG,h=alt*DEG;
 /** Earth-local position of a latitude/longitude (matches THREE.SphereGeometry UVs). */
 function latLonToVec(lat,lon,r,out){ const la=lat*DEG,lo=lon*DEG;
   return (out||new THREE.Vector3()).set(r*Math.cos(la)*Math.cos(lo), r*Math.sin(la), -r*Math.cos(la)*Math.sin(lo)); }
-/** Direction of the North-Pole axis for a season (Sun fixed at +X; tilt kept at 23.5°). */
-function tiltAxisFor(season){ const t=TILT*DEG, s=SEASONS[season].decSign;
-  if(s===0) return new THREE.Vector3(0,Math.cos(t),-Math.sin(t));      // tilted sideways to the Sun
-  return new THREE.Vector3(s*Math.sin(t),Math.cos(t),0);               // towards (+1) / away from (-1) the Sun
-}
+/** The North-Pole axis keeps pointing the SAME way in space all year (23.5° tilt) – this is why seasons happen. */
+function tiltAxis(){ const t=TILT*DEG; return new THREE.Vector3(0,Math.cos(t),-Math.sin(t)); }
 function cityClock(c){ return state.timeOfDay + c.tz - HK.tz; }
+/**
+ * Yearly motion: the Sun's ecliptic longitude L (0° = March equinox, 90° = June solstice …).
+ * Standard low-precision formula (accurate to ~0.01°), including the Earth's slightly elliptical orbit.
+ * daysSinceStart = days after 20 March 2026 00:00 (Hong Kong time).
+ */
+const N_START=9574.60993;   // days from J2000.0 to the model's start date (calibrated so 20 Mar noon = equinox)
+const YEAR_DAYS=365.2422;
+function solarLongitude(daysSinceStart){ const n=N_START+daysSinceStart, g=(357.528+0.9856003*n)*DEG;
+  const L=280.460+0.9856474*n+1.915*Math.sin(g)+0.020*Math.sin(2*g); return ((L%360)+360)%360; }
+const START_MS=Date.UTC(2026,2,20);
+function dateText(idx){ const d=new Date(START_MS+Math.round(idx)*864e5); return (d.getUTCMonth()+1)+'月'+d.getUTCDate()+'日'; }
+const posMod=(a,m)=>((a%m)+m)%m;
 
 /* =====================================================================
    3. HELPERS – maths, noise, procedural textures
@@ -530,17 +604,19 @@ function makeLabelLayer(container,camera,viewEl){
   return {
     add(html,opt){ opt=opt||{}; const el=document.createElement('div'); el.className='lbl'+(opt.cls?' '+opt.cls:''); el.innerHTML=html;
       container.appendChild(el);
-      const L={el,html,getPos:opt.getPos,occlude:opt.occlude||null,mode:opt.mode||'free',prio:opt.prio||5,pad:opt.pad||0,show:true,cand:0,_o:-1,w:0,h:0};
+      const L={el,html,getPos:opt.getPos,occlude:opt.occlude||null,mode:opt.mode||'free',prio:opt.prio||5,pad:opt.pad||0,
+        essential:!!opt.essential,show:true,cand:0,_o:-1,w:0,h:0};
       list.push(L); return L; },
     html(L,h){ if(L.html!==h){ L.html=h; L.el.innerHTML=h; L.w=0; } },
     resize(w,h){ W=w; H=h; this.updateReserved(); },
     updateReserved(){ const vr=viewEl.getBoundingClientRect();
       reserved=$$('#'+viewEl.id+' .reserve').filter(e=>e.offsetParent!==null).map(e=>{ const r=e.getBoundingClientRect();
         return {l:r.left-vr.left-4,t:r.top-vr.top-4,r:r.right-vr.left+4,b:r.bottom-vr.top+4}; }); },
-    update(isOcc,enabled){
+    // scaffoldOn: optional (scaffolding) labels are shown only when the 🏷️ button is on; essential labels always show
+    update(isOcc,scaffoldOn){
       const items=[];
       for(const L of list){
-        if(!L.show||!enabled){ setO(L,0); continue; }
+        if(!L.show||!(L.essential||scaffoldOn)){ setO(L,0); continue; }
         L.getPos(v); let o=1;
         if(L.occlude&&isOcc&&isOcc(v)) o=(L.occlude==='hide')?0:0.4;
         v.project(camera);
@@ -617,18 +693,31 @@ const spaceCamera=new THREE.PerspectiveCamera(45,1,0.1,700);
 const ANISO=spaceRenderer.capabilities.getMaxAnisotropy();
 
 // --- lightweight orbit controls state ---
+// The scene is drawn with the Earth at the origin. The DAY camera turns together with the Sun direction,
+// so the Sun always stays on the right (same view as before). The YEAR camera is fixed relative to the Sun,
+// so students see the Earth travelling around the Sun.
 const ORBIT_DEF={theta:-12*DEG,phi:68*DEG,radius:19.5};
-const orbit={target:new THREE.Vector3(2.5,0,0),theta:ORBIT_DEF.theta,phi:ORBIT_DEF.phi,radius:ORBIT_DEF.radius};
-function applyOrbit(){ const s=Math.sin(orbit.phi);
-  spaceCamera.position.set(orbit.target.x+orbit.radius*s*Math.sin(orbit.theta), orbit.target.y+orbit.radius*Math.cos(orbit.phi),
-    orbit.target.z+orbit.radius*s*Math.cos(orbit.theta));
-  spaceCamera.lookAt(orbit.target); spaceCamera.updateMatrixWorld(); }
+const YORBIT_DEF={theta:-20*DEG,phi:50*DEG,radius:44};
+const orbit={theta:ORBIT_DEF.theta,phi:ORBIT_DEF.phi,radius:ORBIT_DEF.radius};
+const yorbit={theta:YORBIT_DEF.theta,phi:YORBIT_DEF.phi,radius:YORBIT_DEF.radius};
+let yearBlend=0, curL=0, curDecF=0;
+const _ct1=new THREE.Vector3(),_ct2=new THREE.Vector3(),_cp1=new THREE.Vector3(),_cp2=new THREE.Vector3(),_ctg=new THREE.Vector3();
+function sphPos(out,t,th,ph,r){ const s=Math.sin(ph); return out.set(t.x+r*s*Math.sin(th),t.y+r*Math.cos(ph),t.z+r*s*Math.cos(th)); }
+function applyOrbit(dt){
+  yearBlend+=((state.yearMode?1:0)-yearBlend)*Math.min(1,(dt||0)*2.5);
+  if(Math.abs(yearBlend-(state.yearMode?1:0))<0.002) yearBlend=state.yearMode?1:0;
+  const e=yearBlend*yearBlend*(3-2*yearBlend);
+  _ct1.copy(SUN_DIR).multiplyScalar(2.5); sphPos(_cp1,_ct1,orbit.theta+curL,orbit.phi,orbit.radius);
+  _ct2.copy(SUN_DIR).multiplyScalar(ORBIT_R); sphPos(_cp2,_ct2,yorbit.theta,yorbit.phi,yorbit.radius);
+  spaceCamera.position.lerpVectors(_cp1,_cp2,e); _ctg.lerpVectors(_ct1,_ct2,e);
+  spaceCamera.lookAt(_ctg); spaceCamera.updateMatrixWorld(); }
 
 // --- lights: Sun = DirectionalLight (parallel rays) + faint ambient so the night side is not pure black ---
 spaceScene.add(new THREE.AmbientLight(0xffffff,0.10));
 const sunLight=new THREE.DirectionalLight(0xffffff,1.35); sunLight.position.copy(SUN_DIR).multiplyScalar(30); spaceScene.add(sunLight);
 
 // --- background: coloured stars + Milky Way ---
+const bgGroup=new THREE.Group(); spaceScene.add(bgGroup);
 (function(){ const r=mulberry32(3);
   [[1100,1.2],[380,2.0],[90,3.0]].forEach(([n,size])=>{
     const pos=new Float32Array(n*3), cl=new Float32Array(n*3);
@@ -637,8 +726,8 @@ const sunLight=new THREE.DirectionalLight(0xffffff,1.35); sunLight.position.copy
       const t=r(), c=t<0.2?[0.72,0.8,1]:(t<0.85?[1,1,1]:[1,0.86,0.68]), b=0.55+r()*0.45;
       cl[i*3]=c[0]*b; cl[i*3+1]=c[1]*b; cl[i*3+2]=c[2]*b; }
     const g=new THREE.BufferGeometry(); g.setAttribute('position',new THREE.BufferAttribute(pos,3)); g.setAttribute('color',new THREE.BufferAttribute(cl,3));
-    spaceScene.add(new THREE.Points(g,new THREE.PointsMaterial({size,sizeAttenuation:false,vertexColors:true}))); });
-  spaceScene.add(new THREE.Mesh(new THREE.SphereGeometry(300,48,24),
+    bgGroup.add(new THREE.Points(g,new THREE.PointsMaterial({size,sizeAttenuation:false,vertexColors:true}))); });
+  bgGroup.add(new THREE.Mesh(new THREE.SphereGeometry(300,48,24),
     new THREE.MeshBasicMaterial({map:buildMilkyWay(),side:THREE.BackSide,transparent:true,blending:THREE.AdditiveBlending,depthWrite:false})));
 })();
 
@@ -656,15 +745,17 @@ const sunMat=new THREE.ShaderMaterial({ uniforms:{uTime:{value:0}},
       vec3 col=mix(vec3(1.0,0.58,0.15),vec3(1.0,0.97,0.86),pow(mu,0.5));
       col*=(0.84+0.3*g)*(0.55+0.45*pow(mu,0.35));
       gl_FragColor=vec4(col,1.0); }` });
-const sunMesh=new THREE.Mesh(new THREE.SphereGeometry(1.6,48,32),sunMat); sunMesh.position.copy(SUN_POS); spaceScene.add(sunMesh);
+const sunFrame=new THREE.Group(); spaceScene.add(sunFrame);   // local +X always points from the Earth to the Sun
+const SUN_LOCAL=new THREE.Vector3(ORBIT_R,0,0);
+const sunMesh=new THREE.Mesh(new THREE.SphereGeometry(1.6,48,32),sunMat); sunMesh.position.copy(SUN_LOCAL); sunFrame.add(sunMesh);
 const glowTex=radialTexture([[0,'rgba(255,250,225,1)'],[.2,'rgba(255,225,130,.85)'],[.5,'rgba(255,170,60,.3)'],[1,'rgba(255,140,0,0)']]);
 [[7.5,1],[17,0.35]].forEach(([s,o])=>{ const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:glowTex,blending:THREE.AdditiveBlending,depthWrite:false,transparent:true,opacity:o}));
-  sp.scale.set(s,s,1); sp.position.copy(SUN_POS); spaceScene.add(sp); });
+  sp.scale.set(s,s,1); sp.position.copy(SUN_LOCAL); sunFrame.add(sp); });
 
 // --- parallel sunlight rays (arrows Sun → Earth) ---
 [[0,0],[1.1,0],[-1.1,0],[0,1.1],[0,-1.1]].forEach(([y,z])=>{
   const a=makeArrow(6.2,0xF0E442,0.03,0.42,0.13,0.85);
-  a.position.set(9.2,y,z); a.quaternion.setFromUnitVectors(Y_AXIS,SUN_DIR.clone().negate()); spaceScene.add(a); });
+  a.position.set(9.2,y,z); a.quaternion.setFromUnitVectors(Y_AXIS,new THREE.Vector3(-1,0,0)); sunFrame.add(a); });
 
 // --- Earth: tilt group (axis, arrow) → spin group (globe, clouds, pins) ---
 const tiltGroup=new THREE.Group(); spaceScene.add(tiltGroup);
@@ -703,7 +794,7 @@ arcHead.position.set(0.18,0,0.85); arcHead.quaternion.setFromUnitVectors(Y_AXIS,
 
 // --- terminator ring (day/night boundary, plane ⟂ sunlight) ---
 const termRing=new THREE.Mesh(new THREE.TorusGeometry(R_EARTH*1.022,0.022,8,180),new THREE.MeshBasicMaterial({color:0xffffff,transparent:true,opacity:0.9}));
-termRing.rotation.y=Math.PI/2; spaceScene.add(termRing);
+termRing.rotation.y=Math.PI/2; sunFrame.add(termRing);
 
 function placeOnSurface(obj,lat,lon){ const n=latLonToVec(lat,lon,1); obj.position.copy(n).multiplyScalar(R_EARTH); obj.quaternion.setFromUnitVectors(Y_AXIS,n); }
 
@@ -720,11 +811,16 @@ const upArrow=makeArrow(0.8,0xffffff,0.016,0.15,0.055,1); upArrow.position.y=0.0
 const losMesh=new THREE.Mesh(new THREE.CylinderGeometry(0.014,0.014,2.6,6),new THREE.MeshBasicMaterial({color:0xF0E442}));
 losMesh.quaternion.setFromUnitVectors(Y_AXIS,SUN_DIR); spaceScene.add(losMesh);
 
-// --- comparison city pin (square head) ---
-const cityPin=new THREE.Group(); spinGroup.add(cityPin);
-const cityStick=new THREE.Mesh(new THREE.CylinderGeometry(0.018,0.018,0.36,8),new THREE.MeshBasicMaterial({color:0xffffff})); cityStick.position.y=0.18;
-const cityHead=new THREE.Mesh(new THREE.BoxGeometry(0.14,0.14,0.14),new THREE.MeshBasicMaterial({color:0xCC79A7})); cityHead.position.y=0.4;
-cityPin.add(cityStick,cityHead);
+// --- city pins (square heads); the clock's comparison city gets a bigger head ---
+const pinStickGeo=new THREE.CylinderGeometry(0.018,0.018,0.36,8), pinStickMat=new THREE.MeshBasicMaterial({color:0xffffff});
+const pinHeadGeo=new THREE.BoxGeometry(0.14,0.14,0.14), pinHeadMat=new THREE.MeshBasicMaterial({color:0xCC79A7});
+const cityObjs=Object.keys(CITIES).map(key=>{
+  const c=CITIES[key], pin=new THREE.Group(); spinGroup.add(pin);
+  const stick=new THREE.Mesh(pinStickGeo,pinStickMat); stick.position.y=0.18;
+  const head=new THREE.Mesh(pinHeadGeo,pinHeadMat); head.position.y=0.4;
+  pin.add(stick,head); placeOnSurface(pin,c.lat,c.lon);
+  return {key,c,pin,head,up:new THREE.Vector3(),L:null};
+});
 
 // --- Moon (simplified, not to scale; lit only by the Sun) ---
 const moonTex=buildMoonTexture();
@@ -743,14 +839,48 @@ function updateDawnDusk(){
   const plusIsDawn=vel.dot(SUN_DIR)>0;                                                  // moving INTO sunlight = dawn
   dawnPos.copy(c).multiplyScalar((plusIsDawn?1:-1)*R_EARTH*1.02); duskPos.copy(dawnPos).negate();
 }
-function applySeasonGeometry(){
-  axisWorld=tiltAxisFor(state.season);
-  tiltGroup.quaternion.setFromUnitVectors(Y_AXIS,axisWorld);
-  tiltGroup.updateMatrixWorld(true);
-  const sL=SUN_DIR.clone().applyQuaternion(tiltGroup.quaternion.clone().invert());
-  sunAlphaDeg=Math.atan2(-sL.z,sL.x)/DEG;   // Sun's "longitude" in the non-spinning Earth frame
-  updateDawnDusk(); rebuildSunPath();
+// The axis is fixed in space for the whole year (it does NOT turn towards or away from the Sun).
+axisWorld=tiltAxis();
+tiltGroup.quaternion.setFromUnitVectors(Y_AXIS,axisWorld);
+const Q_TILT_INV=tiltGroup.quaternion.clone().invert(), _sL=new THREE.Vector3();
+let lastPathDec=null;
+/** Recomputes everything that depends on where the Earth is on its yearly orbit. */
+function computeSunGeometry(){
+  // Day mode keeps the chosen date (noon value, as before); year mode moves continuously.
+  const days=state.dateIdx+(state.yearMode?state.timeOfDay/24:0.5);
+  curL=solarLongitude(days)*DEG; curDecF=Math.sin(curL);
+  SUN_DIR.set(Math.cos(curL),0,-Math.sin(curL));          // the Earth goes anticlockwise around the Sun (seen from above)
+  sunFrame.rotation.y=curL;
+  sunLight.position.copy(SUN_DIR).multiplyScalar(30);
+  losMesh.quaternion.setFromUnitVectors(Y_AXIS,SUN_DIR);
+  _sL.copy(SUN_DIR).applyQuaternion(Q_TILT_INV);
+  sunAlphaDeg=Math.atan2(-_sL.z,_sL.x)/DEG;                // Sun's "longitude" in the non-spinning Earth frame
+  bgGroup.position.copy(SUN_DIR).multiplyScalar(ORBIT_R);  // stars stay still relative to the Sun
+  orbitGroup.position.copy(SUN_DIR).multiplyScalar(ORBIT_R);
+  updateDawnDusk();
+  if(lastPathDec===null||Math.abs(curDecF-lastPathDec)>0.0005){ lastPathDec=curDecF; rebuildSunPath(); }
 }
+
+// --- Earth's yearly orbit (dashed circle around the Sun) with month and season markers ---
+const orbitGroup=new THREE.Group(); spaceScene.add(orbitGroup);
+const orbitMat=new THREE.LineDashedMaterial({color:0x9ecbff,dashSize:0.7,gapSize:0.45,transparent:true,opacity:0});
+(function(){ const pts=[]; for(let i=0;i<=256;i++){ const a=i/256*Math.PI*2; pts.push(new THREE.Vector3(ORBIT_R*Math.cos(a),0,-ORBIT_R*Math.sin(a))); }
+  const line=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),orbitMat); line.computeLineDistances(); orbitGroup.add(line); })();
+/** Where the Earth is (relative to the Sun) on a given date. */
+function earthOrbitPos(days,out){ const L=solarLongitude(days)*DEG; return out.set(-ORBIT_R*Math.cos(L),0,ORBIT_R*Math.sin(L)); }
+const MARKS=[];
+(function(){
+  const dotMat=new THREE.MeshBasicMaterial({color:0x9ecbff,transparent:true,opacity:0});
+  const bigMat=new THREE.MeshBasicMaterial({color:0xF0E442,transparent:true,opacity:0});
+  for(let k=0;k<12;k++){ const m=(3+k)%12, y=m<3?2027:2026;            // 1 Apr 2026 … 1 Mar 2027
+    const d=(Date.UTC(y,m,1)-START_MS)/864e5+0.5;
+    const pos=earthOrbitPos(d,new THREE.Vector3()), dot=new THREE.Mesh(new THREE.SphereGeometry(0.18,10,8),dotMat);
+    dot.position.copy(pos); orbitGroup.add(dot); MARKS.push({pos,text:(m+1)+'月',season:false}); }
+  [[0,'🌸 春分<small>3月20日</small>'],[93,'☀️ 夏至<small>6月21日</small>'],[187,'🍂 秋分<small>9月23日</small>'],[276,'❄️ 冬至<small>12月21日</small>']].forEach(([d,t])=>{
+    const pos=earthOrbitPos(d+0.5,new THREE.Vector3()), dot=new THREE.Mesh(new THREE.SphereGeometry(0.32,12,10),bigMat);
+    dot.position.copy(pos); orbitGroup.add(dot); MARKS.push({pos,text:t,season:true}); });
+  orbitGroup.userData.mats=[dotMat,bigMat];
+})();
 /** Earth spin angle so HK's hour angle = spinDir·(t−12)·15°  (360° = 24 h). */
 function earthSpinRad(){ return (sunAlphaDeg-HK.lon+state.spinDir*(state.timeOfDay-12)*15)*DEG; }
 
@@ -758,18 +888,22 @@ function earthSpinRad(){ return (sunAlphaDeg-HK.lon+state.spinDir*(state.timeOfD
 const spaceLabels=makeLabelLayer($('#spaceLabels'),spaceCamera,$('#spaceView'));
 const SL=spaceLabels;
 const hkUp=new THREE.Vector3(), cityUp=new THREE.Vector3();
-SL.add('☀️ 太陽<small>發光體：自己會發光</small>',{cls:'big',mode:'pin',prio:9,getPos:v=>v.set(SUN_POS.x,1.7,0)});
-SL.add('陽光<small>平行光線</small>',{prio:3,getPos:v=>v.set(6.2,-1.6,0)});
+// Essential labels (always shown): 香港, the cities, 北. Everything else is optional scaffolding (🏷️ 輔助標籤).
+SL.add('☀️ 太陽<small>發光體：自己會發光</small>',{cls:'big',mode:'pin',prio:9,getPos:v=>sunFrame.localToWorld(v.set(ORBIT_R,1.7,0))});
+SL.add('陽光<small>平行光線</small>',{prio:3,getPos:v=>sunFrame.localToWorld(v.set(6.2,-1.6,0))});
 SL.add('🌍 地球<small>不發光體：自己不會發光</small>',{prio:5,occlude:'fade',getPos:v=>v.set(0,-3.0,0)});
-SL.add('☀️ 白天',{prio:4,occlude:'fade',getPos:v=>v.set(2.7,2.2,0.5)});
-SL.add('🌙 黑夜',{prio:4,occlude:'fade',getPos:v=>v.set(-2.7,2.2,0.5)});
-SL.add('北',{cls:'pole',prio:9,getPos:v=>v.copy(axisWorld).multiplyScalar(3.55)});
+SL.add('☀️ 白天',{prio:4,occlude:'fade',getPos:v=>sunFrame.localToWorld(v.set(2.7,2.2,0.5))});
+SL.add('🌙 黑夜',{prio:4,occlude:'fade',getPos:v=>sunFrame.localToWorld(v.set(-2.7,2.2,0.5))});
+SL.add('北',{cls:'pole',prio:9,essential:true,getPos:v=>v.copy(axisWorld).multiplyScalar(3.55)});
 SL.add('南',{cls:'pole',prio:2,occlude:'fade',getPos:v=>v.copy(axisWorld).multiplyScalar(-3.6)});
 const lblSpin=SL.add('',{cls:'spin',mode:'pin',prio:8,getPos:v=>v.copy(axisWorld).multiplyScalar(2.75).addScaledVector(SUN_DIR,0.85)});
 SL.add('🌅 黎明<small>正轉入陽光中</small>',{cls:'term',mode:'pin',prio:7,occlude:'fade',getPos:v=>v.copy(dawnPos)});
 SL.add('🌇 黃昏<small>正轉入黑暗中</small>',{cls:'term',mode:'pin',prio:7,occlude:'fade',getPos:v=>v.copy(duskPos)});
-const lblHK=SL.add('',{cls:'hk',mode:'pin',prio:10,occlude:'hide',getPos:v=>v.copy(hkUp).multiplyScalar(R_EARTH+0.31)});
-const lblCity=SL.add('',{cls:'city',mode:'pin',prio:9,occlude:'hide',getPos:v=>v.copy(cityUp).multiplyScalar(R_EARTH+0.4)});
+const lblHK=SL.add('',{cls:'hk',mode:'pin',prio:10,essential:true,occlude:'hide',getPos:v=>v.copy(hkUp).multiplyScalar(R_EARTH+0.31)});
+cityObjs.forEach(o=>{ o.L=SL.add('',{cls:'city',mode:'pin',prio:7,essential:true,occlude:'hide',getPos:v=>v.copy(o.up).multiplyScalar(R_EARTH+0.4)}); });
+// year-orbit markers (season markers are essential in year mode; month numbers are scaffolding)
+MARKS.forEach(m=>{ m.L=SL.add(m.text,{cls:m.season?'term':'tiny',mode:'pin',prio:m.season?6:2,essential:m.season,pad:m.season?4:2,
+  getPos:v=>v.copy(m.pos).add(orbitGroup.position)}); m.L.show=false; });
 const lblMoon=SL.add('🌙 月球',{mode:'pin',prio:6,occlude:'fade',getPos:v=>v.copy(moonMesh.position).setY(0.5)});
 const _oc=new THREE.Vector3();
 function occludedByEarth(p){ const cam=spaceCamera.position; _oc.subVectors(p,cam); const d=_oc.length(); _oc.divideScalar(d);
@@ -1061,7 +1195,7 @@ const dotTex=radialTexture([[0,'rgba(255,255,255,1)'],[.6,'rgba(255,255,255,1)']
 groundScene.add(new THREE.Points(pathGeo,new THREE.PointsMaterial({color:0xfff3a0,size:9,map:dotTex,transparent:true,alphaTest:0.4,sizeAttenuation:false,fog:false})));
 const HOUR_MARKS=[6,9,12,15,18], hourInfo={}, _tmp=new THREE.Vector3();
 function rebuildSunPath(){
-  const ds=SEASONS[state.season].decSign;
+  const ds=curDecF;   // today's Sun declination factor (changes through the year)
   for(let i=0;i<PATH_N;i++){ const s=sunAzAlt(i/6,HK.lat,HK.lon,TILT,state.spinDir,ds); azAltToVec(s.az,s.alt,PATH_D,_tmp);
     pathPos[i*3]=_tmp.x; pathPos[i*3+1]=_tmp.y; pathPos[i*3+2]=_tmp.z; }
   pathGeo.attributes.position.needsUpdate=true; pathGeo.computeBoundingSphere();
@@ -1070,14 +1204,14 @@ function rebuildSunPath(){
 
 // --- ground labels: compass directions, places, Sun, Moon, hour marks ---
 const groundLabels=makeLabelLayer($('#groundLabels'),groundCamera,$('#groundView'));
-[[0,'北'],[90,'東'],[180,'南'],[270,'西']].forEach(([az,t])=>groundLabels.add(t,{cls:'compass',prio:9,getPos:v=>azAltToVec(az,0,130,v).setY(6)}));
+[[0,'北'],[90,'東'],[180,'南'],[270,'西']].forEach(([az,t])=>groundLabels.add(t,{cls:'compass',prio:9,essential:true,getPos:v=>azAltToVec(az,0,130,v).setY(6)}));
 [[45,'東北'],[135,'東南'],[225,'西南'],[315,'西北']].forEach(([az,t])=>groundLabels.add(t,{cls:'compass2',prio:2,getPos:v=>azAltToVec(az,0,130,v).setY(4)}));
 groundLabels.add('地平線',{cls:'tiny',prio:1,getPos:v=>azAltToVec(100,0,1500,v)});
 groundLabels.add('維多利亞港',{cls:'place',prio:1,getPos:v=>v.set(30,0.5,60)});
 groundLabels.add('香港島',{cls:'place',prio:1,getPos:v=>v.set(-140,40,330)});
 const groundSunDir=new THREE.Vector3(0,1,0), groundMoonDir=new THREE.Vector3(0,1,0);
 let moonAlt=-90;
-const lblGSun=groundLabels.add('☀️ 太陽',{mode:'pin',prio:10,pad:26,getPos:v=>v.copy(groundSunDir).multiplyScalar(SUN_D)});
+const lblGSun=groundLabels.add('☀️ 太陽',{mode:'pin',prio:10,essential:true,pad:26,getPos:v=>v.copy(groundSunDir).multiplyScalar(SUN_D)});
 const lblGMoon=groundLabels.add('🌙 月球',{cls:'tiny',mode:'pin',prio:6,pad:10,getPos:v=>v.copy(groundMoonDir).multiplyScalar(MOON_D)});
 const hourLbls=HOUR_MARKS.map(h=>({h,L:groundLabels.add(fmtTime(h),{cls:'hour',mode:'pin',prio:3,getPos:v=>v.copy(hourInfo[h].pos)})}));
 
@@ -1107,7 +1241,12 @@ const _zen=new THREE.Color(), _hor=new THREE.Color(), _sc=new THREE.Color(), _cl
 const ui={ play:$('#btnPlay'),slider:$('#timeSlider'),hk:$('#hkTime'),cityT:$('#cityTime'),cityN:$('#cityName'),cityDay:$('#cityDay'),
   turned:$('#turned'),hand:$('#dialHand'),hint:$('#hint'),spin:$('#btnSpin'),banner:$('#expBanner'),moon:$('#btnMoon'),
   follow:$('#btnFollow'),labels:$('#btnLabels'),citySel:$('#citySel'),seasonSel:$('#seasonSel'),views:$('#views'),
-  dialSun:$('#dialSun'),dialFacing:$('#dialFacing') };
+  dialSun:$('#dialSun'),dialFacing:$('#dialFacing'), year:$('#btnYear'), yearPanel:$('#yearPanel'), dateTxt:$('#dateTxt'),
+  ypDate:$('#ypDate'), ypBar:$('#ypBar'), ypDays:$('#ypDays'), ypSpins:$('#ypSpins'), dateSlider:$('#dateSlider'),
+  speedDay:$('#speedDay'), speedYear:$('#speedYear'), cityChips:$('#cityChips') };
+// city choices (clock comparison select + chips for pins shown on the globe)
+ui.citySel.innerHTML=Object.keys(CITIES).map(k=>`<option value="${k}">${CITIES[k].zh}（${CITIES[k].country}）</option>`).join('');
+ui.cityChips.innerHTML=Object.keys(CITIES).map(k=>`<button class="btn sm" data-city="${k}" aria-pressed="false">${CITIES[k].zh}（${CITIES[k].country}）</button>`).join('');
 (function(){ let s=''; for(let i=0;i<24;i++){ const big=i%6===0;
   s+=`<line x1="0" y1="-46" x2="0" y2="${big?-38:-42}" stroke="#fff" stroke-width="${big?3:1.5}" transform="rotate(${i*15})"/>`; }
   $('#dialTicks').innerHTML=s; })();
@@ -1115,7 +1254,21 @@ const ui={ play:$('#btnPlay'),slider:$('#timeSlider'),hk:$('#hkTime'),cityT:$('#
 function setPlaying(p){ state.playing=p; ui.play.textContent=p?'⏸ 暫停':'▶ 播放'; }
 function setSpeed(s){ state.speed=s; $$('[data-speed]').forEach(b=>b.setAttribute('aria-pressed',String(+b.dataset.speed===s))); }
 function setFollow(f){ state.followSun=f; ui.follow.setAttribute('aria-pressed',String(f)); }
-function setLabels(on){ state.showLabels=on; ui.labels.setAttribute('aria-pressed',String(on)); }
+function setScaffold(on){ state.showScaffold=on; ui.labels.setAttribute('aria-pressed',String(on)); }
+function refreshCityPins(){
+  cityObjs.forEach(o=>{ const isClock=o.key===state.city, on=isClock||state.shownCities.includes(o.key);
+    o.pin.visible=on; o.L.show=on; o.L.prio=isClock?9:7; o.head.scale.setScalar(isClock?1.3:0.85); });
+  $$('#cityChips [data-city]').forEach(b=>{ const k=b.dataset.city, isClock=k===state.city;
+    b.disabled=isClock; b.setAttribute('aria-pressed',String(isClock||state.shownCities.includes(k)));
+    b.textContent=CITIES[k].zh+'（'+CITIES[k].country+'）'+(isClock?' 🕒':''); });
+}
+function setYearMode(on){
+  state.yearMode=on; ui.year.setAttribute('aria-pressed',String(on)); ui.yearPanel.hidden=!on;
+  ui.speedDay.hidden=on; ui.speedYear.hidden=!on;
+  setSpeed(on?24:1);
+  if(on){ setFollow(true); }
+  MARKS.forEach(m=>{ m.L.show=on; });
+  requestAnimationFrame(resizeAll); }
 function setLayout(l){ state.layout=l; ui.views.className='layout-'+l;
   $$('[data-layout]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.layout===l)));
   $$('[data-fs]').forEach(b=>{ const on=b.dataset.fs===l; b.textContent=on?'🗗':'⛶'; b.setAttribute('aria-label',on?'返回分屏':'全螢幕顯示'); });
@@ -1126,14 +1279,16 @@ function setSpinDir(d){
   spinArrow.scale.x=d;   // mirror arrow: anticlockwise ↔ clockwise
   SL.html(lblSpin,exp?'↻ 由東向西<small>🧪 實驗：順時針</small>':'↺ 由西向東<small>自轉方向：逆時針</small>');
   updateDawnDusk(); rebuildSunPath(); requestAnimationFrame(resizeAll); }
-function setCity(k){ state.city=k; ui.citySel.value=k; const c=CITIES[k]; placeOnSurface(cityPin,c.lat,c.lon); ui.cityN.textContent=c.zh; }
-function setSeason(s){ state.season=s; ui.seasonSel.value=s; applySeasonGeometry(); }
+function setCity(k){ state.city=k; ui.citySel.value=k; state.shownCities=state.shownCities.filter(x=>x!==k); ui.cityN.textContent=CITIES[k].zh; refreshCityPins(); }
+function setSeason(s){ if(!SEASONS[s]) return; state.season=s; state.dateIdx=SEASONS[s].day; ui.seasonSel.value=s; computeSunGeometry(); }
 function setMoon(on){ state.showMoon=on; ui.moon.setAttribute('aria-pressed',String(on));
   moonMesh.visible=on; moonOrbitLine.visible=on; lblMoon.show=on; gMoon.visible=on; }
 function resetAll(){
   Object.assign(state,DEFAULTS);
-  orbit.theta=ORBIT_DEF.theta; orbit.phi=ORBIT_DEF.phi; orbit.radius=ORBIT_DEF.radius; gZoom=1;
-  setPlaying(false); setSpeed(1); setFollow(true); setLabels(true); setCity('london'); setMoon(true);
+  state.shownCities=DEFAULTS.shownCities.slice();
+  orbit.theta=ORBIT_DEF.theta; orbit.phi=ORBIT_DEF.phi; orbit.radius=ORBIT_DEF.radius;
+  yorbit.theta=YORBIT_DEF.theta; yorbit.phi=YORBIT_DEF.phi; yorbit.radius=YORBIT_DEF.radius; yearBlend=0; gZoom=1;
+  setYearMode(false); setPlaying(false); setSpeed(1); setFollow(true); setScaffold(false); setCity('london'); setMoon(true);
   setSeason('equinox'); setSpinDir(1); setLayout('split');
   const s=currentSun(); gYaw=gTargetYaw=s.az; gPitch=gTargetPitch=10; applyGroundFov();
 }
@@ -1145,7 +1300,17 @@ $('#btnRealEarth').addEventListener('click',()=>setSpinDir(1));
 ui.citySel.addEventListener('change',e=>setCity(e.target.value));
 ui.seasonSel.addEventListener('change',e=>setSeason(e.target.value));
 ui.moon.addEventListener('click',()=>setMoon(!state.showMoon));
-ui.labels.addEventListener('click',()=>setLabels(!state.showLabels));
+ui.labels.addEventListener('click',()=>setScaffold(!state.showScaffold));
+ui.year.addEventListener('click',()=>setYearMode(!state.yearMode));
+ui.cityChips.addEventListener('click',e=>{ const b=e.target.closest('[data-city]'); if(!b||b.disabled) return;
+  // only two cities at a time: the clock city + one other (choosing a new one replaces the old one)
+  const k=b.dataset.city; state.shownCities=state.shownCities.includes(k)?[]:[k]; refreshCityPins(); });
+$('#btnCities').addEventListener('click',()=>{ const c=$('#cities'); c.hidden=!c.hidden; $('#btnCities').setAttribute('aria-expanded',String(!c.hidden)); });
+let dateSliderActive=false;
+ui.dateSlider.addEventListener('pointerdown',()=>{ dateSliderActive=true; setPlaying(false); });
+window.addEventListener('pointerup',()=>{ dateSliderActive=false; });
+ui.dateSlider.addEventListener('input',()=>{ setPlaying(false); state.dateIdx=+ui.dateSlider.value; computeSunGeometry(); });
+ui.dateSlider.addEventListener('change',()=>{ dateSliderActive=false; });
 $$('[data-layout]').forEach(b=>b.addEventListener('click',()=>setLayout(b.dataset.layout)));
 $$('[data-fs]').forEach(b=>b.addEventListener('click',()=>setLayout(state.layout===b.dataset.fs?'split':b.dataset.fs)));
 $('#btnReset').addEventListener('click',resetAll);
@@ -1174,13 +1339,15 @@ spaceCanvas.addEventListener('pointerdown',e=>{
 spaceCanvas.addEventListener('pointermove',e=>{
   if(!sPtrs.has(e.pointerId)){ spaceCanvas.style.cursor=earthHit(e.clientX,e.clientY)?'grab':'move'; return; }
   const p=sPtrs.get(e.pointerId), dx=e.clientX-p.x, dy=e.clientY-p.y; p.x=e.clientX; p.y=e.clientY;
-  if(sMode==='orbit'){ orbit.theta-=dx*0.006; orbit.phi=clamp(orbit.phi-dy*0.006,0.12,Math.PI-0.12); }
+  const O=state.yearMode?yorbit:orbit;
+  if(sMode==='orbit'){ O.theta-=dx*0.006; O.phi=clamp(O.phi-dy*0.006,0.12,Math.PI-0.12); }
   else if(sMode==='earth'){ const h=earthHit(e.clientX,e.clientY);
     if(h){ const a=tiltAngleOf(h), d=wrapPi(a-lastAng); lastAng=a; addHours(state.spinDir*(d/DEG)/15); } }
-  else if(sMode==='pinch'&&sPtrs.size===2){ const nd=pDist(sPtrs); orbit.radius=clamp(orbit.radius*pinchD/nd,7,45); pinchD=nd; } });
+  else if(sMode==='pinch'&&sPtrs.size===2){ const nd=pDist(sPtrs); zoomSpace(pinchD/nd); pinchD=nd; } });
+function zoomSpace(f){ if(state.yearMode) yorbit.radius=clamp(yorbit.radius*f,18,90); else orbit.radius=clamp(orbit.radius*f,7,45); }
 function sEnd(e){ sPtrs.delete(e.pointerId); if(sPtrs.size===0){ sMode=null; spaceCanvas.style.cursor=''; } else if(sMode==='pinch') sMode='orbit'; }
 spaceCanvas.addEventListener('pointerup',sEnd); spaceCanvas.addEventListener('pointercancel',sEnd);
-spaceCanvas.addEventListener('wheel',e=>{ e.preventDefault(); orbit.radius=clamp(orbit.radius*(1+Math.sign(e.deltaY)*0.08),7,45); },{passive:false});
+spaceCanvas.addEventListener('wheel',e=>{ e.preventDefault(); zoomSpace(1+Math.sign(e.deltaY)*0.08); },{passive:false});
 
 // --- Ground View pointer: drag to look around (turns off Follow Sun); pinch/wheel = zoom like binoculars ---
 const gPtrs=new Map(); let gPinch=0;
@@ -1216,19 +1383,23 @@ const STEPS=[
  { t:'日與夜',
    b:'太陽是<b>發光體</b>，自己會發光。地球是<b>不發光體</b>，自己不會發光。陽光只能照亮地球面向太陽的一半。',
    q:'🤔 香港現在是白天還是晚上？你怎樣知道？',
-   hl:['#spaceView'], enter(){ setPlaying(false); setTime(10); } },
+   hl:['#spaceView','#btnLabels'], enter(){ setYearMode(false); setScaffold(true); setPlaying(false); setTime(10); } },
  { t:'地球怎樣自轉？',
    b:'按「▶ 播放」，留意香港（橙色小人）怎樣移動。北極上方的橙色箭頭顯示地球的自轉方向。',
    q:'🤔 地球是由西向東轉，還是由東向西轉？轉一整圈要多少小時？',
-   hl:['#btnPlay','#clockBox'], enter(){ setSpinDir(1); setSpeed(1); setPlaying(true); } },
+   hl:['#btnPlay','#clockBox'], enter(){ setYearMode(false); setSpinDir(1); setSpeed(1); setPlaying(true); } },
  { t:'太陽從東方升起',
    b:'看看香港怎樣由黑暗的一面轉進陽光裏。同一時間，留意地面視角。',
    q:'🤔 太陽最先在哪個方向出現？為甚麼？',
-   hl:['#groundView'], enter(){ setSpinDir(1); setTime(4.5); setSpeed(0.25); setFollow(true); setPlaying(true); if(state.layout!=='split') setLayout('split'); } },
+   hl:['#groundView'], enter(){ setYearMode(false); setSpinDir(1); setTime(4.5); setSpeed(0.25); setFollow(true); setPlaying(true); if(state.layout!=='split') setLayout('split'); } },
  { t:'自己試試',
    b:'拖動地球或時間滑桿。然後按「🧪 如果地球反方向自轉，會怎樣？」',
    q:'🤔 現在太陽從哪個方向升起？這是真實的地球嗎？',
-   hl:['#sliderWrap','#btnSpin'], enter(){ setPlaying(false); } }
+   hl:['#sliderWrap','#btnSpin'], enter(){ setYearMode(false); setPlaying(false); } },
+ { t:'地球公轉：一年有多長？',
+   b:'地球除了自轉，還會繞着太陽轉，這叫做<b>公轉</b>。按「🔄 公轉（一年）」，再按「▶ 播放」，看看地球怎樣沿着藍色虛線圈繞太陽轉。',
+   q:'🤔 地球繞太陽轉一圈要多少日？這段時間地球自轉了大約多少圈？',
+   hl:['#btnYear','#yearPanel'], enter(){ if(state.spinDir<0) setSpinDir(1); setYearMode(true); setSeason('equinox'); setSpeed(168); setPlaying(true); } }
 ];
 let gIdx=-1;
 function clearHL(){ $$('.highlight').forEach(e=>e.classList.remove('highlight')); }
@@ -1257,22 +1428,28 @@ window.addEventListener('resize',resizeAll);
 /* =====================================================================
    8. ANIMATION LOOP – everything is derived from `state` every frame
    ===================================================================== */
-function currentSun(){ return sunAzAlt(state.timeOfDay,HK.lat,HK.lon,TILT,state.spinDir,SEASONS[state.season].decSign); }
+function currentSun(){ return sunAzAlt(state.timeOfDay,HK.lat,HK.lon,TILT,state.spinDir,curDecF); }
 const hkW=new THREE.Vector3(), eastW=new THREE.Vector3(), northW=new THREE.Vector3(), moonDirW=new THREE.Vector3(), headW=new THREE.Vector3();
 
-function updateSpace(sHK,sCity){
+function updateSpace(sHK,dt){
   spinGroup.rotation.y=earthSpinRad();
   const elong=(MOON_START_DEG+(state.day+state.timeOfDay/24)/LUNAR_MONTH*360)*DEG;   // Moon angle from the Sun direction
-  moonMesh.position.set(MOON_DIST*Math.cos(elong),0,-MOON_DIST*Math.sin(elong)); moonMesh.rotation.y=elong;
-  applyOrbit(); spaceScene.updateMatrixWorld();
+  const ma=curL+elong;
+  moonMesh.position.set(MOON_DIST*Math.cos(ma),0,-MOON_DIST*Math.sin(ma)); moonMesh.rotation.y=ma;
+  // orbit path + markers fade in only in 公轉 mode
+  orbitMat.opacity=0.85*yearBlend; orbitGroup.visible=yearBlend>0.02;
+  orbitGroup.userData.mats.forEach(m=>{ m.opacity=yearBlend; });
+  applyOrbit(dt); spaceScene.updateMatrixWorld();
   hkGroup.getWorldPosition(hkW); hkUp.copy(hkW).normalize();
-  cityPin.getWorldPosition(cityUp); cityUp.normalize();
   hkHeadM.getWorldPosition(headW);
   losMesh.visible=sHK.alt>0; losMesh.position.copy(headW).addScaledVector(SUN_DIR,1.35);
-  const c=CITIES[state.city];
   SL.html(lblHK,`香港 ${sHK.alt>0?'☀️':'🌙'}<small>${fmtTime(state.timeOfDay)}・${sHK.alt>0?'白天':'晚上'}</small>`);
-  SL.html(lblCity,`${c.zh} ${sCity.alt>0?'☀️':'🌙'}<small>${fmtTime(cityClock(c))}・${sCity.alt>0?'白天':'晚上'}</small>`);
-  spaceLabels.update(occludedByEarth,state.showLabels);
+  cityObjs.forEach(o=>{ if(!o.pin.visible) return;
+    o.pin.getWorldPosition(o.up); o.up.normalize();
+    const s=sunAzAlt(state.timeOfDay,o.c.lat,o.c.lon,TILT,state.spinDir,curDecF), day=s.alt>0;
+    SL.html(o.L,`${o.c.zh} ${day?'☀️':'🌙'}<small>${o.c.country}・${fmtTime(cityClock(o.c))}・${day?'白天':'晚上'}</small>`); });
+  MARKS.forEach(m=>{ m.L.show=state.yearMode&&yearBlend>0.6; });
+  spaceLabels.update(occludedByEarth,state.showScaffold);
 }
 
 function updateGround(s,dt,tSec){
@@ -1317,13 +1494,15 @@ function updateGround(s,dt,tSec){
   hourLbls.forEach(o=>{ o.L.show=state.timeOfDay>=o.h&&hourInfo[o.h].alt>-1; });
   if(state.followSun){ gTargetYaw=s.az; gTargetPitch=alt>0?clamp(alt*0.7,8,50):10; }
   updateGroundCamera(dt);
-  groundLabels.update(null,state.showLabels);
+  groundLabels.update(null,state.showScaffold);
   // sky-map dial
   const rr=alt>=0?(90-alt)/90*50:56;
   ui.dialSun.setAttribute('cx',(rr*Math.sin(s.az*DEG)).toFixed(1)); ui.dialSun.setAttribute('cy',(-rr*Math.cos(s.az*DEG)).toFixed(1));
   ui.dialSun.setAttribute('opacity',alt>=0?'1':'0.35');
   ui.dialFacing.setAttribute('transform',`rotate(${gYaw.toFixed(1)})`);
-  setHTML(ui.hint,'hint',hintFor(s,state.timeOfDay));
+  setHTML(ui.hint,'hint',(state.yearMode&&state.playing&&state.speed>=168)
+    ?'🔄 公轉模式：時間過得很快，地面視角的太陽會快速升起和落下。按「⏸ 暫停」再仔細看。'
+    :hintFor(s,state.timeOfDay));
 }
 
 function updateUI(){
@@ -1334,18 +1513,32 @@ function updateUI(){
   setHTML(ui.turned,'tu',Math.round(t*15)+'°'+(state.spinDir<0?' ↻':' ↺'));
   ui.hand.setAttribute('transform',`rotate(${(t/24*360+180).toFixed(1)})`);
   if(!sliderActive&&Math.abs(+ui.slider.value-t)>0.01) ui.slider.value=t;
+  // calendar date, season selector and year panel
+  const dTxt=dateText(state.dateIdx);
+  setHTML(ui.dateTxt,'dt',dTxt);
+  const dm=posMod(state.dateIdx,365);
+  const match=Object.keys(SEASONS).find(k=>SEASONS[k].day===dm)||'custom';
+  if(ui.seasonSel.value!==match){ ui.seasonSel.value=match; if(match!=='custom') state.season=match; }
+  if(state.yearMode){
+    const yd=posMod(state.dateIdx+t/24,YEAR_DAYS);
+    setHTML(ui.ypDate,'ypd',dTxt);
+    setHTML(ui.ypDays,'ypy',String(Math.floor(yd)));
+    setHTML(ui.ypSpins,'yps',String(Math.floor(yd)));
+    ui.ypBar.style.width=(yd/YEAR_DAYS*100).toFixed(2)+'%';
+    if(!dateSliderActive&&+ui.dateSlider.value!==dm) ui.dateSlider.value=dm;
+  }
 }
 
 let last=performance.now(), frameN=0;
 function frame(now){
   const dt=Math.min(0.1,(now-last)/1000); last=now; const tSec=now/1000;
   if(state.playing) addHours(dt*state.speed);
-  const ds=SEASONS[state.season].decSign, c=CITIES[state.city];
-  const sHK=currentSun(), sCity=sunAzAlt(state.timeOfDay,c.lat,c.lon,TILT,state.spinDir,ds);
+  computeSunGeometry();
+  const sHK=currentSun();
   const showSpace=state.layout!=='ground', showGround=state.layout!=='space';
   sunMat.uniforms.uTime.value=tSec; clouds.rotation.y+=dt*0.004;
   if(++frameN%20===0){ spaceLabels.updateReserved(); groundLabels.updateReserved(); }
-  updateSpace(sHK,sCity);
+  updateSpace(sHK,dt);
   if(showSpace) spaceRenderer.render(spaceScene,spaceCamera);
   if(showGround){ updateGround(sHK,dt,tSec); groundRenderer.render(groundScene,groundCamera); }
   else setHTML(ui.hint,'hint',hintFor(sHK,state.timeOfDay));
